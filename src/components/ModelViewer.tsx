@@ -1,4 +1,4 @@
-import { Suspense, useRef, useState, useEffect } from "react";
+import { Suspense, useRef, useState, useEffect, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Environment, ContactShadows, Html, Center } from "@react-three/drei";
 import * as THREE from "three";
@@ -10,17 +10,58 @@ interface ModelViewerProps {
   onPartsLoaded?: (parts: string[]) => void;
 }
 
-function Model({ url, highlightPart, highlightColor, onPartsLoaded }: { url: string; highlightPart?: string; highlightColor?: string; onPartsLoaded?: (parts: string[]) => void }) {
+function AutoFitModel({ url, highlightPart, highlightColor, onPartsLoaded }: { url: string; highlightPart?: string; highlightColor?: string; onPartsLoaded?: (parts: string[]) => void }) {
   const { scene } = useGLTF(url);
   const groupRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+  const originalMaterials = useRef<Map<string, THREE.Material | THREE.Material[]>>(new Map());
 
+  // Clone scene to avoid mutating the cached original
+  const clonedScene = useMemo(() => scene.clone(true), [scene]);
+
+  // Auto-fit: compute bounding box once and scale/position to fit view
+  useEffect(() => {
+    const box = new THREE.Box3().setFromObject(clonedScene);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    // Scale to fit within a 2.5 unit sphere
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = maxDim > 0 ? 2.5 / maxDim : 1;
+    clonedScene.scale.setScalar(scale);
+
+    // Re-center after scaling
+    const scaledCenter = center.multiplyScalar(scale);
+    clonedScene.position.set(-scaledCenter.x, -scaledCenter.y, -scaledCenter.z);
+
+    // Position camera
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.position.set(0, 0.5, 4);
+      camera.lookAt(0, 0, 0);
+      camera.updateProjectionMatrix();
+    }
+  }, [clonedScene, camera]);
+
+  // Collect parts and store original materials
   useEffect(() => {
     const parts: string[] = [];
-    scene.traverse((child) => {
+    clonedScene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
-        parts.push(child.name || `mesh_${parts.length}`);
         const mesh = child as THREE.Mesh;
-        if (mesh.material) {
+        const name = child.name || `mesh_${parts.length}`;
+        parts.push(name);
+
+        // Store original material for reset
+        if (!originalMaterials.current.has(name)) {
+          if (Array.isArray(mesh.material)) {
+            originalMaterials.current.set(name, mesh.material.map(m => m.clone()));
+          } else {
+            originalMaterials.current.set(name, mesh.material.clone());
+          }
+        }
+
+        // Enhance PBR
+        if (mesh.material && !Array.isArray(mesh.material)) {
           const mat = mesh.material as THREE.MeshStandardMaterial;
           if (mat.isMeshStandardMaterial) {
             mat.roughness = 0.4;
@@ -31,43 +72,52 @@ function Model({ url, highlightPart, highlightColor, onPartsLoaded }: { url: str
       }
     });
     onPartsLoaded?.(parts);
-  }, [scene, onPartsLoaded]);
+  }, [clonedScene, onPartsLoaded]);
 
+  // Handle highlighting
   useEffect(() => {
-    if (!highlightPart) return;
-    scene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const isTarget = child.name === highlightPart;
-        if (Array.isArray(mesh.material)) {
-          mesh.material.forEach((m) => {
-            if (m instanceof THREE.MeshStandardMaterial) {
-              m.opacity = isTarget ? 1 : 0.3;
-              m.transparent = !isTarget;
-              if (isTarget && highlightColor) {
-                m.emissive = new THREE.Color(highlightColor);
-                m.emissiveIntensity = 0.3;
-              } else {
-                m.emissive = new THREE.Color(0x000000);
-                m.emissiveIntensity = 0;
-              }
-            }
-          });
-        } else if (mesh.material instanceof THREE.MeshStandardMaterial) {
-          mesh.material.opacity = isTarget ? 1 : 0.3;
-          mesh.material.transparent = !isTarget;
-          if (isTarget && highlightColor) {
-            mesh.material.emissive = new THREE.Color(highlightColor);
-            mesh.material.emissiveIntensity = 0.3;
-          } else {
-            mesh.material.emissive = new THREE.Color(0x000000);
-            mesh.material.emissiveIntensity = 0;
-          }
+    clonedScene.traverse((child) => {
+      if (!(child as THREE.Mesh).isMesh) return;
+      const mesh = child as THREE.Mesh;
+      const meshName = child.name || "";
+
+      const applyHighlight = (m: THREE.Material) => {
+        if (!(m instanceof THREE.MeshStandardMaterial)) return;
+
+        if (!highlightPart) {
+          // No highlight — reset all to full opacity
+          m.opacity = 1;
+          m.transparent = false;
+          m.emissive = new THREE.Color(0x000000);
+          m.emissiveIntensity = 0;
+          m.needsUpdate = true;
+          return;
         }
+
+        const isTarget = meshName === highlightPart;
+        m.opacity = isTarget ? 1 : 0.15;
+        m.transparent = true;
+        m.depthWrite = isTarget;
+
+        if (isTarget && highlightColor) {
+          m.emissive = new THREE.Color(highlightColor);
+          m.emissiveIntensity = 0.5;
+        } else {
+          m.emissive = new THREE.Color(0x000000);
+          m.emissiveIntensity = 0;
+        }
+        m.needsUpdate = true;
+      };
+
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach(applyHighlight);
+      } else {
+        applyHighlight(mesh.material);
       }
     });
-  }, [highlightPart, highlightColor, scene]);
+  }, [highlightPart, highlightColor, clonedScene]);
 
+  // Gentle rotation when no part is highlighted
   useFrame((_, delta) => {
     if (groupRef.current && !highlightPart) {
       groupRef.current.rotation.y += delta * 0.15;
@@ -75,11 +125,9 @@ function Model({ url, highlightPart, highlightColor, onPartsLoaded }: { url: str
   });
 
   return (
-    <Center>
-      <group ref={groupRef}>
-        <primitive object={scene} />
-      </group>
-    </Center>
+    <group ref={groupRef}>
+      <primitive object={clonedScene} />
+    </group>
   );
 }
 
@@ -121,18 +169,18 @@ export function ModelViewer({ modelUrl, highlightPart, highlightColor, onPartsLo
   return (
     <div className="w-full h-full">
       <Canvas
-        camera={{ position: [0, 0, 4], fov: 45 }}
+        camera={{ position: [0, 0.5, 4], fov: 45 }}
         gl={{ antialias: true, alpha: true }}
         style={{ background: "transparent" }}
       >
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 5, 5]} intensity={0.8} castShadow />
-        <directionalLight position={[-3, 3, -3]} intensity={0.3} />
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 5, 5]} intensity={0.9} castShadow />
+        <directionalLight position={[-3, 3, -3]} intensity={0.4} />
         <pointLight position={[0, -3, 0]} intensity={0.2} />
         
         <Suspense fallback={<LoadingIndicator />}>
           {modelUrl ? (
-            <Model
+            <AutoFitModel
               url={modelUrl}
               highlightPart={highlightPart}
               highlightColor={highlightColor}
@@ -156,6 +204,7 @@ export function ModelViewer({ modelUrl, highlightPart, highlightColor, onPartsLo
           minDistance={1.5}
           maxDistance={10}
           maxPolarAngle={Math.PI / 1.5}
+          target={[0, 0, 0]}
         />
       </Canvas>
     </div>
