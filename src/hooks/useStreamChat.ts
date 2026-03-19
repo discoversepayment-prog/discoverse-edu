@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ChatMessage {
   id: string;
@@ -13,7 +14,7 @@ export function useStreamChat() {
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const send = useCallback(async (input: string) => {
+  const send = useCallback(async (input: string, agentId?: string) => {
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: input };
     const allMessages = [...messages, userMsg];
     setMessages(allMessages);
@@ -34,6 +35,7 @@ export function useStreamChat() {
         },
         body: JSON.stringify({
           messages: allMessages.map(m => ({ role: m.role, content: m.content })),
+          agentId,
         }),
         signal: controller.signal,
       });
@@ -86,7 +88,7 @@ export function useStreamChat() {
         console.error("Chat error:", e);
         setMessages(prev => [
           ...prev,
-          { id: crypto.randomUUID(), role: "assistant", content: `Sorry, something went wrong: ${e.message}` },
+          { id: crypto.randomUUID(), role: "assistant", content: `Maaf garnus, error aayo: ${e.message}` },
         ]);
       }
     } finally {
