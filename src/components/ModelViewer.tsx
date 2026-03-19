@@ -114,42 +114,47 @@ function AutoFitModel({ url, highlightPart, highlightColor, onPartsLoaded }: { u
       const meshName = child.name || "";
 
       const applyHighlight = (material: THREE.Material) => {
-        if (!(material instanceof THREE.MeshStandardMaterial)) return;
+        const mat = material as THREE.MeshStandardMaterial;
+        if (!mat.emissive) return; // safety check
 
         if (!highlightPart) {
-          material.opacity = 1;
-          material.transparent = false;
-          material.depthWrite = true;
-          material.emissive = new THREE.Color(0x000000);
-          material.emissiveIntensity = 0;
-          material.needsUpdate = true;
+          // No highlighting — reset all
+          mat.opacity = 1;
+          mat.transparent = false;
+          mat.depthWrite = true;
+          mat.emissive.set(0x000000);
+          mat.emissiveIntensity = 0;
+          mat.needsUpdate = true;
           return;
         }
 
         if (!resolvedHighlightPart) {
-          material.opacity = 1;
-          material.transparent = false;
-          material.depthWrite = true;
-          material.emissive = new THREE.Color(activeColor);
-          material.emissiveIntensity = 0.12;
-          material.needsUpdate = true;
+          // Part name couldn't be resolved — apply color tint to entire model
+          mat.opacity = 1;
+          mat.transparent = false;
+          mat.depthWrite = true;
+          mat.color.set(activeColor);
+          mat.emissive.set(activeColor);
+          mat.emissiveIntensity = 0.3;
+          mat.needsUpdate = true;
           return;
         }
 
         const isTarget = meshName === resolvedHighlightPart;
-        material.opacity = isTarget ? 1 : 0.18;
-        material.transparent = !isTarget;
-        material.depthWrite = isTarget;
+        mat.opacity = isTarget ? 1 : 0.15;
+        mat.transparent = !isTarget;
+        mat.depthWrite = isTarget;
 
         if (isTarget) {
-          material.emissive = new THREE.Color(activeColor);
-          material.emissiveIntensity = 0.6;
+          mat.color.set(activeColor);
+          mat.emissive.set(activeColor);
+          mat.emissiveIntensity = 0.7;
         } else {
-          material.emissive = new THREE.Color(0x000000);
-          material.emissiveIntensity = 0;
+          mat.emissive.set(0x000000);
+          mat.emissiveIntensity = 0;
         }
 
-        material.needsUpdate = true;
+        mat.needsUpdate = true;
       };
 
       if (Array.isArray(mesh.material)) {
