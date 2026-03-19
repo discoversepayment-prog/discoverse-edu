@@ -36,7 +36,35 @@ function AutoFitModel({ url, highlightPart, highlightColor, onPartsLoaded }: { u
   const groupRef = useRef<THREE.Group>(null);
   const { camera } = useThree();
 
-  const clonedScene = useMemo(() => scene.clone(true), [scene]);
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone(true);
+    // Convert all materials to MeshStandardMaterial so highlighting always works
+    // (handles KHR_materials_pbrSpecularGlossiness and other non-standard materials)
+    clone.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const convertMat = (mat: THREE.Material): THREE.MeshStandardMaterial => {
+        if (mat instanceof THREE.MeshStandardMaterial) return mat;
+        const oldMat = mat as THREE.Material & { color?: THREE.Color; map?: THREE.Texture | null; opacity?: number; transparent?: boolean };
+        const newMat = new THREE.MeshStandardMaterial({
+          color: oldMat.color instanceof THREE.Color ? oldMat.color.clone() : new THREE.Color(0x888888),
+          map: oldMat.map || null,
+          opacity: typeof oldMat.opacity === "number" ? oldMat.opacity : 1,
+          transparent: !!oldMat.transparent,
+          side: mat.side,
+          roughness: 0.7,
+          metalness: 0.1,
+        });
+        return newMat;
+      };
+      if (Array.isArray(mesh.material)) {
+        mesh.material = mesh.material.map(convertMat);
+      } else {
+        mesh.material = convertMat(mesh.material);
+      }
+    });
+    return clone;
+  }, [scene]);
 
   const meshNames = useMemo(() => {
     const parts: string[] = [];
@@ -86,42 +114,47 @@ function AutoFitModel({ url, highlightPart, highlightColor, onPartsLoaded }: { u
       const meshName = child.name || "";
 
       const applyHighlight = (material: THREE.Material) => {
-        if (!(material instanceof THREE.MeshStandardMaterial)) return;
+        const mat = material as THREE.MeshStandardMaterial;
+        if (!mat.emissive) return; // safety check
 
         if (!highlightPart) {
-          material.opacity = 1;
-          material.transparent = false;
-          material.depthWrite = true;
-          material.emissive = new THREE.Color(0x000000);
-          material.emissiveIntensity = 0;
-          material.needsUpdate = true;
+          // No highlighting — reset all
+          mat.opacity = 1;
+          mat.transparent = false;
+          mat.depthWrite = true;
+          mat.emissive.set(0x000000);
+          mat.emissiveIntensity = 0;
+          mat.needsUpdate = true;
           return;
         }
 
         if (!resolvedHighlightPart) {
-          material.opacity = 1;
-          material.transparent = false;
-          material.depthWrite = true;
-          material.emissive = new THREE.Color(activeColor);
-          material.emissiveIntensity = 0.12;
-          material.needsUpdate = true;
+          // Part name couldn't be resolved — apply color tint to entire model
+          mat.opacity = 1;
+          mat.transparent = false;
+          mat.depthWrite = true;
+          mat.color.set(activeColor);
+          mat.emissive.set(activeColor);
+          mat.emissiveIntensity = 0.3;
+          mat.needsUpdate = true;
           return;
         }
 
         const isTarget = meshName === resolvedHighlightPart;
-        material.opacity = isTarget ? 1 : 0.18;
-        material.transparent = !isTarget;
-        material.depthWrite = isTarget;
+        mat.opacity = isTarget ? 1 : 0.15;
+        mat.transparent = !isTarget;
+        mat.depthWrite = isTarget;
 
         if (isTarget) {
-          material.emissive = new THREE.Color(activeColor);
-          material.emissiveIntensity = 0.6;
+          mat.color.set(activeColor);
+          mat.emissive.set(activeColor);
+          mat.emissiveIntensity = 0.7;
         } else {
-          material.emissive = new THREE.Color(0x000000);
-          material.emissiveIntensity = 0;
+          mat.emissive.set(0x000000);
+          mat.emissiveIntensity = 0;
         }
 
-        material.needsUpdate = true;
+        mat.needsUpdate = true;
       };
 
       if (Array.isArray(mesh.material)) {

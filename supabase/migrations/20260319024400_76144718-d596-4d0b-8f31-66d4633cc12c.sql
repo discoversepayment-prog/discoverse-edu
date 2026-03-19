@@ -1,0 +1,1 @@
+DELETE FROM simulation_cache WHERE model_id = 'd8d62d24-eb7d-435f-9e05-3c3ee5ccf0cf';
