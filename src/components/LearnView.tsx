@@ -3,6 +3,7 @@ import {
   Sparkles, ChevronLeft, ChevronRight, Play, Pause, Square,
   Volume2, VolumeX, Share2, RotateCcw, ZoomIn, ZoomOut, Maximize2, Atom, Loader2, Wand2,
 } from "lucide-react";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { ModelViewer } from "./ModelViewer";
 import { useApp } from "@/contexts/AppContext";
 import { useTTS } from "@/hooks/useTTS";
@@ -26,6 +27,120 @@ interface Simulation {
 }
 
 const topicSuggestions = ["Human Heart", "DNA Structure", "Solar System", "Atom Model", "Cell Division", "Water Molecule"];
+const fallbackStepColors = ["#CC4444", "#4488CC", "#44AA44", "#D17A00", "#7D4CC2", "#D14A8B"];
+
+const isHexColor = (color: unknown): color is string => typeof color === "string" && /^#([0-9a-fA-F]{6})$/.test(color);
+const normalizeToken = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const resolvePartName = (candidate: string, availableParts: string[]) => {
+  const trimmed = candidate.trim();
+  if (!trimmed || availableParts.length === 0) return "";
+  if (availableParts.includes(trimmed)) return trimmed;
+
+  const normalizedCandidate = normalizeToken(trimmed);
+  const exact = availableParts.find((part) => normalizeToken(part) === normalizedCandidate);
+  if (exact) return exact;
+
+  const partial = availableParts.find((part) => {
+    const normalizedPart = normalizeToken(part);
+    return normalizedPart.includes(normalizedCandidate) || normalizedCandidate.includes(normalizedPart);
+  });
+
+  return partial || "";
+};
+
+const extractModelPartsFromGlb = async (url: string): Promise<string[]> => {
+  return new Promise((resolve) => {
+    const loader = new GLTFLoader();
+
+    loader.load(
+      url,
+      (gltf) => {
+        const parts = new Set<string>();
+        gltf.scene.traverse((child) => {
+          const mesh = child as { isMesh?: boolean; name?: string };
+          if (mesh.isMesh && mesh.name) parts.add(mesh.name);
+        });
+        resolve([...parts]);
+      },
+      undefined,
+      () => resolve([]),
+    );
+  });
+};
+
+const normalizeSimulationData = (rawSimulation: unknown, availableParts: string[], topicLabel: string): Simulation => {
+  const sim = rawSimulation as Partial<Simulation> | null;
+  const rawSteps = Array.isArray(sim?.steps) ? sim.steps : [];
+
+  const steps: SimStep[] = rawSteps.slice(0, 8).map((rawStep, index) => {
+    const step = rawStep as Partial<SimStep>;
+    const rawPart = typeof step.part === "string" ? step.part.trim() : "";
+
+    return {
+      title: typeof step.title === "string" && step.title.trim() ? step.title.trim() : `Step ${index + 1}`,
+      part: availableParts.length > 0 ? resolvePartName(rawPart, availableParts) : rawPart,
+      color: isHexColor(step.color) ? step.color : fallbackStepColors[index % fallbackStepColors.length],
+      narration_en: typeof step.narration_en === "string" && step.narration_en.trim()
+        ? step.narration_en.trim()
+        : `Let's explore ${topicLabel} step by step.`,
+      narration_hi: typeof step.narration_hi === "string" && step.narration_hi.trim()
+        ? step.narration_hi.trim()
+        : `${topicLabel} को चरण-दर-चरण समझते हैं।`,
+      label_en: typeof step.label_en === "string" && step.label_en.trim() ? step.label_en.trim() : topicLabel,
+      label_hi: typeof step.label_hi === "string" && step.label_hi.trim() ? step.label_hi.trim() : topicLabel,
+      camera: step.camera &&
+        typeof step.camera.x === "number" &&
+        typeof step.camera.y === "number" &&
+        typeof step.camera.z === "number"
+        ? step.camera
+        : { x: 0, y: 0, z: 4 },
+    };
+  });
+
+  if (steps.length > 0) {
+    return {
+      title: typeof sim?.title === "string" && sim.title.trim() ? sim.title.trim() : topicLabel,
+      steps,
+    };
+  }
+
+  return {
+    title: topicLabel,
+    steps: [
+      {
+        title: `Exploring ${topicLabel}`,
+        part: "",
+        color: fallbackStepColors[0],
+        narration_en: `Let's explore the fascinating world of ${topicLabel}. This is an interactive 3D learning experience.`,
+        narration_hi: `आइए ${topicLabel} की आकर्षक दुनिया का पता लगाएं।`,
+        label_en: topicLabel,
+        label_hi: topicLabel,
+        camera: { x: 0, y: 0, z: 4 },
+      },
+      {
+        title: "Key Features",
+        part: "",
+        color: fallbackStepColors[1],
+        narration_en: `${topicLabel} has many interesting features that we'll explore step by step.`,
+        narration_hi: `${topicLabel} की कई दिलचस्प विशेषताएं हैं।`,
+        label_en: "Features",
+        label_hi: "विशेषताएं",
+        camera: { x: 2, y: 1, z: 3 },
+      },
+      {
+        title: "Summary",
+        part: "",
+        color: fallbackStepColors[2],
+        narration_en: `That concludes our exploration of ${topicLabel}. Keep learning and exploring!`,
+        narration_hi: `${topicLabel} की हमारी खोज यहीं समाप्त होती है। सीखते रहें!`,
+        label_en: "Summary",
+        label_hi: "सारांश",
+        camera: { x: 0, y: 0, z: 4 },
+      },
+    ],
+  };
+};
 
 export function LearnView() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -43,12 +158,12 @@ export function LearnView() {
   const autoPlayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const step = simulation?.steps[currentStep];
+  const resolvedHighlightPart = step ? resolvePartName(step.part, modelParts) || undefined : undefined;
 
   // Auto-play logic
   useEffect(() => {
     if (!isAutoPlaying || !simulation) return;
-    
-    // Speak current step
+
     if (!isMuted && step) {
       const text = language === "en" ? step.narration_en : step.narration_hi;
       speak(text, language);
@@ -56,7 +171,7 @@ export function LearnView() {
 
     autoPlayRef.current = setTimeout(() => {
       if (currentStep < simulation.steps.length - 1) {
-        setCurrentStep(prev => prev + 1);
+        setCurrentStep((prev) => prev + 1);
       } else {
         setIsAutoPlaying(false);
       }
@@ -65,7 +180,7 @@ export function LearnView() {
     return () => {
       if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
     };
-  }, [isAutoPlaying, currentStep, simulation, isMuted, language]);
+  }, [isAutoPlaying, currentStep, simulation, isMuted, language, step, speak]);
 
   const handlePlayNarration = () => {
     if (isSpeaking) {
@@ -90,13 +205,14 @@ export function LearnView() {
   const handleGenerate = async (topic?: string) => {
     const t = topic || topicInput;
     if (!t.trim()) return;
+
     setTopicInput(t);
     setIsLoading(true);
     setSimulation(null);
+    setModelParts([]);
     setLoadingProgress(10);
     setLoadingMsg("Searching for 3D models...");
 
-    // Search for model in database
     const slug = t.toLowerCase().replace(/\s+/g, "_");
     const { data: model } = await supabase
       .from("models")
@@ -111,15 +227,26 @@ export function LearnView() {
 
     if (model?.file_url) {
       setModelUrl(model.file_url);
-      setLoadingMsg("Model found! Generating AI simulation...");
+      setLoadingMsg("Model found! Preparing AI simulation...");
     } else {
       setModelUrl(null);
       setLoadingMsg("No model found. Generating AI simulation...");
     }
 
-    setLoadingProgress(50);
+    let effectiveNamedParts: string[] = model?.named_parts?.length ? model.named_parts : [];
 
-    // Check cache first
+    if (!effectiveNamedParts.length && model?.file_url?.toLowerCase().endsWith(".glb")) {
+      setLoadingProgress(45);
+      setLoadingMsg("Analyzing model parts for accurate highlights...");
+      const extracted = await extractModelPartsFromGlb(model.file_url);
+      if (extracted.length > 0) {
+        effectiveNamedParts = extracted;
+        setModelParts(extracted);
+      }
+    }
+
+    setLoadingProgress(55);
+
     if (model?.id) {
       const { data: cached } = await supabase
         .from("simulation_cache")
@@ -129,29 +256,40 @@ export function LearnView() {
         .maybeSingle();
 
       if (cached?.ai_response) {
-        setLoadingProgress(90);
-        setLoadingMsg("Loading cached simulation...");
-        const sim = cached.ai_response as unknown as Simulation;
-        setSimulation(sim);
-        setCurrentStep(0);
-        setLoadingProgress(100);
-        // Increment serve count
-        await supabase.from("simulation_cache").update({ serve_count: (cached.serve_count || 0) + 1 }).eq("id", cached.id);
-        setTimeout(() => setIsLoading(false), 300);
-        return;
+        const rawCached = cached.ai_response as { steps?: Array<{ part?: string }> };
+        const cacheHasUnresolvedParts = effectiveNamedParts.length > 0 &&
+          Array.isArray(rawCached.steps) &&
+          rawCached.steps.some((cachedStep) => {
+            const part = typeof cachedStep?.part === "string" ? cachedStep.part : "";
+            return part.trim().length > 0 && !resolvePartName(part, effectiveNamedParts);
+          });
+
+        if (!cacheHasUnresolvedParts) {
+          setLoadingProgress(90);
+          setLoadingMsg("Loading cached simulation...");
+          const normalizedCache = normalizeSimulationData(cached.ai_response, effectiveNamedParts, t);
+          setSimulation(normalizedCache);
+          setCurrentStep(0);
+          setLoadingProgress(100);
+          await supabase
+            .from("simulation_cache")
+            .update({ serve_count: (cached.serve_count || 0) + 1 })
+            .eq("id", cached.id);
+          setTimeout(() => setIsLoading(false), 300);
+          return;
+        }
       }
     }
 
-    // Call AI enhancement
     setLoadingMsg("AI is creating your simulation...");
-    setLoadingProgress(60);
+    setLoadingProgress(65);
 
     try {
       const { data, error } = await supabase.functions.invoke("enhance-model", {
         body: {
           modelName: t,
           subject: model?.subject || "science",
-          namedParts: model?.named_parts || modelParts,
+          namedParts: effectiveNamedParts,
           language: "en",
         },
       });
@@ -162,29 +300,21 @@ export function LearnView() {
       setLoadingMsg("Finalizing experience...");
 
       if (data && data.steps) {
-        setSimulation(data as Simulation);
+        const normalized = normalizeSimulationData(data, effectiveNamedParts, t);
+        setSimulation(normalized);
         setCurrentStep(0);
 
-        // Cache it if we have a model
         if (model?.id) {
-          await supabase.from("simulation_cache").insert({
+          await supabase.from("simulation_cache").upsert({
             model_id: model.id,
             language: "en",
-            ai_response: data,
-          });
+            ai_response: normalized,
+          }, { onConflict: "model_id,language" });
         }
       }
     } catch (err) {
       console.error("AI enhancement failed:", err);
-      // Fallback simulation
-      setSimulation({
-        title: t,
-        steps: [
-          { title: `Exploring ${t}`, part: "", color: "#CC4444", narration_en: `Let's explore the fascinating world of ${t}. This is an interactive 3D learning experience.`, narration_hi: `आइए ${t} की आकर्षक दुनिया का पता लगाएं।`, label_en: t, label_hi: t, camera: { x: 0, y: 0, z: 4 } },
-          { title: "Key Features", part: "", color: "#4488CC", narration_en: `${t} has many interesting features that we'll explore step by step.`, narration_hi: `${t} की कई दिलचस्प विशेषताएं हैं।`, label_en: "Features", label_hi: "विशेषताएं", camera: { x: 2, y: 1, z: 3 } },
-          { title: "Summary", part: "", color: "#44AA44", narration_en: `That concludes our exploration of ${t}. Keep learning and exploring!`, narration_hi: `${t} की हमारी खोज यहीं समाप्त होती है। सीखते रहें!`, label_en: "Summary", label_hi: "सारांश", camera: { x: 0, y: 0, z: 4 } },
-        ],
-      });
+      setSimulation(normalizeSimulationData(null, effectiveNamedParts, t));
       setCurrentStep(0);
     }
 
@@ -194,7 +324,8 @@ export function LearnView() {
 
   const onPartsLoaded = useCallback((parts: string[]) => {
     setModelParts(parts);
-  }, []);
+    setSimulation((prev) => (prev ? normalizeSimulationData(prev, parts, prev.title || topicInput || "Simulation") : prev));
+  }, [topicInput]);
 
   const goStep = (dir: number) => {
     if (!simulation) return;
@@ -262,7 +393,7 @@ export function LearnView() {
             <>
               <ModelViewer
                 modelUrl={modelUrl}
-                highlightPart={step?.part || undefined}
+                highlightPart={resolvedHighlightPart}
                 highlightColor={step?.color}
                 onPartsLoaded={onPartsLoaded}
               />

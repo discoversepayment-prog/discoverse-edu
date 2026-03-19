@@ -1,6 +1,6 @@
 import { Suspense, useRef, useState, useEffect, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, useGLTF, Environment, ContactShadows, Html, Center } from "@react-three/drei";
+import { OrbitControls, useGLTF, Environment, ContactShadows, Html } from "@react-three/drei";
 import * as THREE from "three";
 
 interface ModelViewerProps {
@@ -10,31 +10,62 @@ interface ModelViewerProps {
   onPartsLoaded?: (parts: string[]) => void;
 }
 
+const normalizeToken = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+const isHexColor = (value: unknown): value is string => typeof value === "string" && /^#([0-9a-fA-F]{6})$/.test(value);
+
+const resolveMeshName = (candidate: string | undefined, meshNames: string[]) => {
+  if (!candidate?.trim() || meshNames.length === 0) return "";
+  const trimmed = candidate.trim();
+
+  if (meshNames.includes(trimmed)) return trimmed;
+
+  const normalizedCandidate = normalizeToken(trimmed);
+  const exactNormalized = meshNames.find((name) => normalizeToken(name) === normalizedCandidate);
+  if (exactNormalized) return exactNormalized;
+
+  const partial = meshNames.find((name) => {
+    const normalizedName = normalizeToken(name);
+    return normalizedName.includes(normalizedCandidate) || normalizedCandidate.includes(normalizedName);
+  });
+
+  return partial || "";
+};
+
 function AutoFitModel({ url, highlightPart, highlightColor, onPartsLoaded }: { url: string; highlightPart?: string; highlightColor?: string; onPartsLoaded?: (parts: string[]) => void }) {
   const { scene } = useGLTF(url);
   const groupRef = useRef<THREE.Group>(null);
   const { camera } = useThree();
-  const originalMaterials = useRef<Map<string, THREE.Material | THREE.Material[]>>(new Map());
 
-  // Clone scene to avoid mutating the cached original
   const clonedScene = useMemo(() => scene.clone(true), [scene]);
 
-  // Auto-fit: compute bounding box once and scale/position to fit view
+  const meshNames = useMemo(() => {
+    const parts: string[] = [];
+    clonedScene.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh) {
+        parts.push(child.name || `mesh_${parts.length}`);
+      }
+    });
+    return parts;
+  }, [clonedScene]);
+
+  const resolvedHighlightPart = useMemo(
+    () => resolveMeshName(highlightPart, meshNames),
+    [highlightPart, meshNames],
+  );
+
   useEffect(() => {
     const box = new THREE.Box3().setFromObject(clonedScene);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
 
-    // Scale to fit within a 2.5 unit sphere
     const maxDim = Math.max(size.x, size.y, size.z);
     const scale = maxDim > 0 ? 2.5 / maxDim : 1;
     clonedScene.scale.setScalar(scale);
 
-    // Re-center after scaling
     const scaledCenter = center.multiplyScalar(scale);
     clonedScene.position.set(-scaledCenter.x, -scaledCenter.y, -scaledCenter.z);
 
-    // Position camera
     if (camera instanceof THREE.PerspectiveCamera) {
       camera.position.set(0, 0.5, 4);
       camera.lookAt(0, 0, 0);
@@ -42,71 +73,55 @@ function AutoFitModel({ url, highlightPart, highlightColor, onPartsLoaded }: { u
     }
   }, [clonedScene, camera]);
 
-  // Collect parts and store original materials
   useEffect(() => {
-    const parts: string[] = [];
-    clonedScene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const name = child.name || `mesh_${parts.length}`;
-        parts.push(name);
+    onPartsLoaded?.(meshNames);
+  }, [meshNames, onPartsLoaded]);
 
-        // Store original material for reset
-        if (!originalMaterials.current.has(name)) {
-          if (Array.isArray(mesh.material)) {
-            originalMaterials.current.set(name, mesh.material.map(m => m.clone()));
-          } else {
-            originalMaterials.current.set(name, mesh.material.clone());
-          }
-        }
-
-        // Enhance PBR
-        if (mesh.material && !Array.isArray(mesh.material)) {
-          const mat = mesh.material as THREE.MeshStandardMaterial;
-          if (mat.isMeshStandardMaterial) {
-            mat.roughness = 0.4;
-            mat.metalness = 0.1;
-            mat.envMapIntensity = 1.2;
-          }
-        }
-      }
-    });
-    onPartsLoaded?.(parts);
-  }, [clonedScene, onPartsLoaded]);
-
-  // Handle highlighting
   useEffect(() => {
+    const activeColor = isHexColor(highlightColor) ? highlightColor : "#E9785D";
+
     clonedScene.traverse((child) => {
       if (!(child as THREE.Mesh).isMesh) return;
       const mesh = child as THREE.Mesh;
       const meshName = child.name || "";
 
-      const applyHighlight = (m: THREE.Material) => {
-        if (!(m instanceof THREE.MeshStandardMaterial)) return;
+      const applyHighlight = (material: THREE.Material) => {
+        if (!(material instanceof THREE.MeshStandardMaterial)) return;
 
         if (!highlightPart) {
-          // No highlight — reset all to full opacity
-          m.opacity = 1;
-          m.transparent = false;
-          m.emissive = new THREE.Color(0x000000);
-          m.emissiveIntensity = 0;
-          m.needsUpdate = true;
+          material.opacity = 1;
+          material.transparent = false;
+          material.depthWrite = true;
+          material.emissive = new THREE.Color(0x000000);
+          material.emissiveIntensity = 0;
+          material.needsUpdate = true;
           return;
         }
 
-        const isTarget = meshName === highlightPart;
-        m.opacity = isTarget ? 1 : 0.15;
-        m.transparent = true;
-        m.depthWrite = isTarget;
-
-        if (isTarget && highlightColor) {
-          m.emissive = new THREE.Color(highlightColor);
-          m.emissiveIntensity = 0.5;
-        } else {
-          m.emissive = new THREE.Color(0x000000);
-          m.emissiveIntensity = 0;
+        if (!resolvedHighlightPart) {
+          material.opacity = 1;
+          material.transparent = false;
+          material.depthWrite = true;
+          material.emissive = new THREE.Color(activeColor);
+          material.emissiveIntensity = 0.12;
+          material.needsUpdate = true;
+          return;
         }
-        m.needsUpdate = true;
+
+        const isTarget = meshName === resolvedHighlightPart;
+        material.opacity = isTarget ? 1 : 0.18;
+        material.transparent = !isTarget;
+        material.depthWrite = isTarget;
+
+        if (isTarget) {
+          material.emissive = new THREE.Color(activeColor);
+          material.emissiveIntensity = 0.6;
+        } else {
+          material.emissive = new THREE.Color(0x000000);
+          material.emissiveIntensity = 0;
+        }
+
+        material.needsUpdate = true;
       };
 
       if (Array.isArray(mesh.material)) {
@@ -115,9 +130,8 @@ function AutoFitModel({ url, highlightPart, highlightColor, onPartsLoaded }: { u
         applyHighlight(mesh.material);
       }
     });
-  }, [highlightPart, highlightColor, clonedScene]);
+  }, [highlightPart, highlightColor, resolvedHighlightPart, clonedScene]);
 
-  // Gentle rotation when no part is highlighted
   useFrame((_, delta) => {
     if (groupRef.current && !highlightPart) {
       groupRef.current.rotation.y += delta * 0.15;
@@ -177,7 +191,7 @@ export function ModelViewer({ modelUrl, highlightPart, highlightColor, onPartsLo
         <directionalLight position={[5, 5, 5]} intensity={0.9} castShadow />
         <directionalLight position={[-3, 3, -3]} intensity={0.4} />
         <pointLight position={[0, -3, 0]} intensity={0.2} />
-        
+
         <Suspense fallback={<LoadingIndicator />}>
           {modelUrl ? (
             <AutoFitModel
