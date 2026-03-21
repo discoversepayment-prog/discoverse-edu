@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sparkles, ChevronLeft, ChevronRight, Play, Pause, Square,
   Volume2, VolumeX, Share2, RotateCcw, Atom, Loader2, Wand2,
