@@ -57,6 +57,7 @@ const App = () => (
               <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/create-agent" element={<ProtectedRoute><CreateAgent /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
               <Route path="/admin/*" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
