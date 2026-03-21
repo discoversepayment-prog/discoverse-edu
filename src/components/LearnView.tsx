@@ -115,22 +115,29 @@ export function LearnView() {
   const step = simulation?.steps[currentStep];
   const resolvedHighlightPart = step ? resolvePartName(step.part, modelParts) || undefined : undefined;
 
-  // Auto-play logic
+  // Auto-play logic: wait for TTS to finish before advancing
   useEffect(() => {
     if (!isAutoPlaying || !simulation) return;
+    
     if (!isMuted && step) {
       const text = language === "en" ? step.narration_en : step.narration_hi;
       speak(text, language);
     }
+    
+    // If speaking, don't set timer — wait for speech to end
+    if (isSpeaking) return;
+    
+    // Only advance after a delay when not speaking (speech just ended or muted)
     autoPlayRef.current = setTimeout(() => {
       if (currentStep < simulation.steps.length - 1) {
         setCurrentStep((prev) => prev + 1);
       } else {
         setIsAutoPlaying(false);
       }
-    }, 10000);
+    }, isMuted ? 5000 : 2000);
+    
     return () => { if (autoPlayRef.current) clearTimeout(autoPlayRef.current); };
-  }, [isAutoPlaying, currentStep, simulation, isMuted, language, step, speak]);
+  }, [isAutoPlaying, currentStep, simulation, isMuted, language, step, speak, isSpeaking]);
 
   const handlePlayNarration = () => {
     if (isSpeaking) { stopTTS(); return; }
