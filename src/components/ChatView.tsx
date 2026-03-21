@@ -60,6 +60,7 @@ export function ChatView() {
     setSelectedAgent(agent);
     setShowAgentList(false);
     clear();
+    if (user) loadConversations(agent.id);
   };
 
   const backToAgents = () => {
