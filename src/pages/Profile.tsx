@@ -29,7 +29,8 @@ export default function Profile() {
   }, [user]);
 
   const loadProfile = async () => {
-    const { data } = await supabase.from("profiles").select("*").eq("user_id", user!.id).maybeSingle();
+    const { data, error } = await supabase.from("profiles").select("*").eq("user_id", user!.id).maybeSingle();
+    if (error) console.error("Load profile error:", error);
     if (data) {
       setProfile(data);
       setForm({ display_name: data.display_name || "", username: data.username || "", bio: data.bio || "" });
@@ -48,19 +49,21 @@ export default function Profile() {
   };
 
   const saveProfile = async () => {
-    if (!user || !profile) return;
+    if (!user) return;
     setSaving(true);
     const username = form.username.toLowerCase().replace(/[^a-z0-9_]/g, "");
     const shareUrl = username ? `discoverseai.com/u/${username}` : null;
     
+    // Use user_id match instead of id for reliability with RLS
     const { error } = await supabase.from("profiles").update({
       display_name: form.display_name || null,
       username: username || null,
       bio: form.bio || null,
       share_url: shareUrl,
-    }).eq("id", profile.id);
+    }).eq("user_id", user.id);
     
     if (error) {
+      console.error("Profile save error:", error);
       if (error.code === "23505") toast.error("Username already taken");
       else toast.error("Failed to save: " + error.message);
     } else {

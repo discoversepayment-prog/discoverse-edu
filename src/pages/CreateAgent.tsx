@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/MainLayout";
 import { Bot, X, Save, Sparkles, ArrowLeft, Camera, Image, FileText, Presentation, Globe, Youtube } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,18 +23,11 @@ const IMAGE_STYLES = [
   { value: "watercolor", label: "Watercolor" },
 ];
 
-export default function CreateAgent() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [saving, setSaving] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState({
-    name: "",
-    slug: "",
-    personality: "warm, friendly guide who explains things like a close friend",
-    system_prompt: `You are a warm, experienced learning companion. Your style:
+const DEFAULT_FORM = {
+  name: "",
+  slug: "",
+  personality: "warm, friendly guide who explains things like a close friend",
+  system_prompt: `You are a warm, experienced learning companion. Your style:
 - Talk like a close friend, not a teacher
 - Use simple language mixed with relevant technical terms
 - Be encouraging and supportive
@@ -42,22 +35,69 @@ export default function CreateAgent() {
 - Use analogies from daily life
 - Never sound like a generic chatbot
 - End with a follow-up question to keep them curious`,
-    greeting_message: "Hey! 👋 I'm here to help you learn. What topic are you curious about today?",
-    language_style: "mixed",
-    knowledge_areas: [] as string[],
-    research_papers: [] as string[],
-    voice_id: "EXAVITQu4vr4xnSDxMaL",
-    tools_enabled: {
-      image_generation: false,
-      pdf_maker: false,
-      pptx_maker: false,
-      web_search: false,
-      youtube_summary: false,
-    } as Record<string, boolean>,
-    image_gen_style: "photorealistic",
-  });
+  greeting_message: "Hey! 👋 I'm here to help you learn. What topic are you curious about today?",
+  language_style: "mixed",
+  knowledge_areas: [] as string[],
+  research_papers: [] as string[],
+  voice_id: "EXAVITQu4vr4xnSDxMaL",
+  tools_enabled: {
+    image_generation: false,
+    pdf_maker: false,
+    pptx_maker: false,
+    web_search: false,
+    youtube_summary: false,
+  } as Record<string, boolean>,
+  image_gen_style: "photorealistic",
+};
+
+export default function CreateAgent() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const { user } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(!!editId);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState({ ...DEFAULT_FORM });
   const [knowledgeInput, setKnowledgeInput] = useState("");
   const [paperInput, setPaperInput] = useState("");
+
+  // Load existing agent for editing
+  useEffect(() => {
+    if (!editId || !user) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from("ai_agents")
+        .select("*")
+        .eq("id", editId)
+        .eq("created_by", user.id)
+        .maybeSingle();
+      if (data) {
+        const tools = (data.tools_enabled as Record<string, boolean>) || DEFAULT_FORM.tools_enabled;
+        setForm({
+          name: data.name || "",
+          slug: data.slug || "",
+          personality: data.personality || "",
+          system_prompt: data.system_prompt || "",
+          greeting_message: data.greeting_message || "",
+          language_style: data.language_style || "mixed",
+          knowledge_areas: data.knowledge_areas || [],
+          research_papers: data.research_papers || [],
+          voice_id: data.voice_id || "",
+          tools_enabled: { ...DEFAULT_FORM.tools_enabled, ...tools },
+          image_gen_style: data.image_gen_style || "photorealistic",
+        });
+        if (data.avatar_url) setAvatarPreview(data.avatar_url);
+      } else {
+        toast.error("Agent not found");
+        navigate("/profile");
+      }
+      setLoadingEdit(false);
+    };
+    load();
+  }, [editId, user]);
 
   const update = (key: string, val: any) => setForm((prev) => ({ ...prev, [key]: val }));
 
@@ -92,7 +132,7 @@ export default function CreateAgent() {
     if (!form.name.trim() || !form.system_prompt.trim() || !user) return;
     setSaving(true);
 
-    let avatarUrl: string | null = null;
+    let avatarUrl: string | null = avatarPreview?.startsWith("http") ? avatarPreview : null;
     if (avatarFile) {
       const ext = avatarFile.name.split(".").pop() || "png";
       const path = `agents/${user.id}/${Date.now()}.${ext}`;
@@ -104,7 +144,7 @@ export default function CreateAgent() {
     }
 
     const slug = form.slug || form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    const { error } = await supabase.from("ai_agents").insert({
+    const payload = {
       name: form.name,
       slug,
       personality: form.personality,
@@ -115,22 +155,41 @@ export default function CreateAgent() {
       research_papers: form.research_papers,
       voice_id: form.voice_id || null,
       is_published: publish,
-      created_by: user.id,
       avatar_url: avatarUrl,
       tools_enabled: form.tools_enabled as any,
       image_gen_style: form.image_gen_style,
-    });
+    };
+
+    let error;
+    if (editId) {
+      // UPDATE existing agent
+      ({ error } = await supabase.from("ai_agents").update(payload).eq("id", editId).eq("created_by", user.id));
+    } else {
+      // INSERT new agent
+      ({ error } = await supabase.from("ai_agents").insert({ ...payload, created_by: user.id }));
+    }
+
     setSaving(false);
     if (error) {
       toast.error("Failed to save: " + error.message);
       return;
     }
-    toast.success(publish ? "Agent published!" : "Draft saved!");
-    navigate("/app");
+    toast.success(editId ? "Agent updated!" : publish ? "Agent published!" : "Draft saved!");
+    navigate("/profile");
   };
 
+  if (loadingEdit) {
+    return (
+      <MainLayout title="Edit Agent">
+        <div className="flex items-center justify-center h-full">
+          <div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" />
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
-    <MainLayout title="Create Agent">
+    <MainLayout title={editId ? "Edit Agent" : "Create Agent"}>
       <div className="h-full overflow-y-auto pb-20 md:pb-8">
         <div className="max-w-xl mx-auto px-4 py-4">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-[12px] text-secondary-custom hover:text-primary-custom mb-4">
@@ -154,7 +213,7 @@ export default function CreateAgent() {
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} />
             <div>
-              <h1 className="text-[18px] font-semibold text-primary-custom">Create Your Agent</h1>
+              <h1 className="text-[18px] font-semibold text-primary-custom">{editId ? "Edit Agent" : "Create Your Agent"}</h1>
               <p className="text-[12px] text-tertiary-custom">Build a specialized AI with personality & tools</p>
             </div>
           </div>
@@ -209,7 +268,7 @@ export default function CreateAgent() {
               </div>
             </div>
 
-            {/* Image gen style (only when image_generation is on) */}
+            {/* Image gen style */}
             {form.tools_enabled.image_generation && (
               <div>
                 <label className="text-[12px] font-medium text-primary-custom block mb-1">Image Style</label>
@@ -286,7 +345,7 @@ export default function CreateAgent() {
               </button>
               <button onClick={() => handleSave(true)} disabled={!form.name || !form.system_prompt || saving}
                 className="flex-1 px-5 py-2.5 bg-accent text-accent-foreground rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97] disabled:opacity-40 flex items-center justify-center gap-1.5">
-                <Sparkles size={14} /> {saving ? "Publishing..." : "Publish"}
+                <Sparkles size={14} /> {saving ? "Saving..." : editId ? "Update & Publish" : "Publish"}
               </button>
             </div>
           </div>
