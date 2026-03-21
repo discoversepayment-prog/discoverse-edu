@@ -249,6 +249,10 @@ export function LearnView() {
         const normalized = normalizeSimulationData(data, effectiveNamedParts, t);
         setSimulation(normalized);
         setCurrentStep(0);
+        // Auto-save to library
+        if (user && model?.id) {
+          supabase.from("user_library").upsert({ user_id: user.id, model_id: model.id, last_step: 0 }, { onConflict: "user_id,model_id" }).then(() => {});
+        }
         if (model?.id) {
           const { data: existingCache } = await supabase.from("simulation_cache").select("id").eq("model_id", model.id).eq("language", "en").maybeSingle();
           const normalizedJson = normalized as unknown as Json;
