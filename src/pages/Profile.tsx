@@ -320,7 +320,7 @@ export default function Profile() {
                   <Link2 size={13} className="text-tertiary-custom mr-2 shrink-0" />
                   <span className="text-[12px] text-muted-foreground truncate">{window.location.origin}/u/{form.username}</span>
                 </div>
-                <button onClick={() => copyLink(`discoverseai.com/u/${form.username}`)}
+                <button onClick={() => copyLink(`/u/${form.username}`)}
                   className="w-10 h-10 bg-card border border-border rounded-xl flex items-center justify-center hover:bg-background-secondary transition-colors shrink-0">
                   {copied ? <Check size={14} className="text-accent" /> : <Copy size={14} className="text-tertiary-custom" />}
                 </button>
