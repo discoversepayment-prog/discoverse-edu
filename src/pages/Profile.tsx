@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/MainLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Mail, Link2, Copy, Check, LogOut, Shield, Save, Bot, Trash2, Edit3, ExternalLink, Power } from "lucide-react";
+import { User, Mail, Link2, Copy, Check, LogOut, Shield, Save, Bot, Trash2, Edit3, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 
@@ -20,6 +20,7 @@ export default function Profile() {
   const [deletingAgent, setDeletingAgent] = useState<string | null>(null);
   const [togglingAgent, setTogglingAgent] = useState<string | null>(null);
   const [agentTab, setAgentTab] = useState<"active" | "drafts">("active");
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
 
   useEffect(() => {
     if (!user) return;
@@ -34,6 +35,13 @@ export default function Profile() {
     if (data) {
       setProfile(data);
       setForm({ display_name: data.display_name || "", username: data.username || "", bio: data.bio || "" });
+    } else {
+      // No profile exists yet - pre-fill from user metadata
+      setForm({
+        display_name: user!.user_metadata?.full_name || user!.email?.split("@")[0] || "",
+        username: "",
+        bio: ""
+      });
     }
     setLoading(false);
   };
@@ -48,19 +56,51 @@ export default function Profile() {
     if (data) setMyAgents(data);
   };
 
+  // Username availability check
+  const checkUsername = async (username: string) => {
+    if (!username || username.length < 3) {
+      setUsernameStatus("idle");
+      return;
+    }
+    setUsernameStatus("checking");
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("username", username)
+      .maybeSingle();
+    
+    if (data && data.user_id !== user!.id) {
+      setUsernameStatus("taken");
+    } else {
+      setUsernameStatus("available");
+    }
+  };
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (form.username) checkUsername(form.username);
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [form.username]);
+
   const saveProfile = async () => {
     if (!user) return;
+    if (usernameStatus === "taken") {
+      toast.error("Username already taken");
+      return;
+    }
     setSaving(true);
     const username = form.username.toLowerCase().replace(/[^a-z0-9_]/g, "");
     const shareUrl = username ? `discoverseai.com/u/${username}` : null;
     
-    // Use user_id match instead of id for reliability with RLS
-    const { error } = await supabase.from("profiles").update({
+    // Use upsert so it works whether profile exists or not
+    const { error } = await supabase.from("profiles").upsert({
+      user_id: user.id,
       display_name: form.display_name || null,
       username: username || null,
       bio: form.bio || null,
       share_url: shareUrl,
-    }).eq("user_id", user.id);
+    }, { onConflict: "user_id" });
     
     if (error) {
       console.error("Profile save error:", error);
@@ -249,8 +289,22 @@ export default function Profile() {
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom text-[13px]">@</span>
               <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
-                className="w-full bg-card border border-border rounded-xl h-10 pl-8 pr-3 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent transition-colors" placeholder="username" />
+                className={`w-full bg-card border rounded-xl h-10 pl-8 pr-10 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none transition-colors ${
+                  usernameStatus === "taken" ? "border-destructive" : usernameStatus === "available" ? "border-green-500" : "border-border focus:border-accent"
+                }`} placeholder="username" />
+              {usernameStatus === "checking" && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-border border-t-accent rounded-full animate-spin" />
+              )}
+              {usernameStatus === "available" && (
+                <Check size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500" />
+              )}
+              {usernameStatus === "taken" && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-destructive text-[11px] font-medium">Taken</span>
+              )}
             </div>
+            {usernameStatus === "taken" && (
+              <p className="text-[11px] text-destructive mt-1">This username is already taken</p>
+            )}
           </div>
           <div>
             <label className="text-[12px] font-medium text-primary-custom block mb-1">Bio</label>
@@ -274,7 +328,7 @@ export default function Profile() {
             </div>
           )}
 
-          <button onClick={saveProfile} disabled={saving}
+          <button onClick={saveProfile} disabled={saving || usernameStatus === "taken"}
             className="w-full bg-accent text-accent-foreground h-10 rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
             <Save size={14} />
             {saving ? "Saving..." : "Save Profile"}
