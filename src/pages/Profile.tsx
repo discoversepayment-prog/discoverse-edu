@@ -91,7 +91,7 @@ export default function Profile() {
     }
     setSaving(true);
     const username = form.username.toLowerCase().replace(/[^a-z0-9_]/g, "");
-    const shareUrl = username ? `discoverseai.com/u/${username}` : null;
+    const shareUrl = username ? `${window.location.origin}/u/${username}` : null;
     
     // Use upsert so it works whether profile exists or not
     const { error } = await supabase.from("profiles").upsert({
