@@ -1,11 +1,9 @@
 import { MessageSquare, BookOpen, Clock, User, Shield } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export function MobileNav() {
   const { mode, setMode } = useApp();
-  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -13,7 +11,7 @@ export function MobileNav() {
     { icon: MessageSquare, label: "Chat", action: () => { setMode("chat"); navigate("/app"); } },
     { icon: BookOpen, label: "Learn", action: () => { setMode("learn"); navigate("/app"); } },
     { icon: Clock, label: "Library", action: () => navigate("/library") },
-    ...(isAdmin ? [{ icon: Shield, label: "Admin", action: () => navigate("/admin") }] : []),
+    { icon: Shield, label: "Admin", action: () => navigate("/admin") },
     { icon: User, label: "Profile", action: () => navigate("/profile") },
   ];
 

@@ -25,18 +25,44 @@ const subjectColors: Record<string, string> = {
   mathematics: "bg-pink-50 text-pink-700",
 };
 
+const ADMIN_PASSWORD = "nishant@123";
+
 export default function Admin() {
-  const { isAdmin } = useAuth();
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("admin_unlocked") === "true");
+  const [pwd, setPwd] = useState("");
+  const [error, setError] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
-  if (!isAdmin) {
+  const handleUnlock = () => {
+    if (pwd === ADMIN_PASSWORD) {
+      setUnlocked(true);
+      sessionStorage.setItem("admin_unlocked", "true");
+      setError(false);
+    } else {
+      setError(true);
+    }
+  };
+
+  if (!unlocked) {
     return (
       <MainLayout title="Admin">
-        <div className="flex flex-col items-center justify-center h-full">
-          <AlertTriangle size={32} strokeWidth={1.5} className="text-accent mb-3" />
-          <h2 className="text-lg font-semibold text-primary-custom">Access Denied</h2>
-          <p className="text-[13px] text-secondary-custom mt-1">You need admin privileges to access this panel.</p>
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+          <AlertTriangle size={32} strokeWidth={1.5} className="text-accent" />
+          <h2 className="text-lg font-semibold text-primary-custom">Admin Access</h2>
+          <p className="text-[13px] text-secondary-custom">Enter password to continue</p>
+          <input
+            type="password"
+            value={pwd}
+            onChange={e => { setPwd(e.target.value); setError(false); }}
+            onKeyDown={e => e.key === "Enter" && handleUnlock()}
+            placeholder="Password"
+            className="w-64 h-10 rounded-lg border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          {error && <p className="text-xs text-red-500">Wrong password</p>}
+          <button onClick={handleUnlock} className="px-6 h-9 rounded-lg bg-accent text-white text-sm font-medium">
+            Unlock
+          </button>
         </div>
       </MainLayout>
     );
