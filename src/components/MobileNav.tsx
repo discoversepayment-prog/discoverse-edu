@@ -8,7 +8,7 @@ export function MobileNav() {
   const location = useLocation();
 
   const items = [
-    { icon: MessageSquare, label: "Chat", action: () => { setMode("chat"); navigate("/app"); } },
+    { icon: MessageSquare, label: "Agents", action: () => { setMode("chat"); navigate("/app"); } },
     { icon: BookOpen, label: "Learn", action: () => { setMode("learn"); navigate("/app"); } },
     { icon: Clock, label: "Library", action: () => navigate("/library") },
     { icon: Shield, label: "Admin", action: () => navigate("/admin") },
@@ -26,16 +26,16 @@ export function MobileNav() {
   const activeIndex = getActiveIndex();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-card/95 backdrop-blur-xl border-t border-border flex items-center justify-around z-50 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-background/95 backdrop-blur-xl border-t border-border flex items-center justify-around z-50 safe-area-bottom">
       {items.map((item, i) => (
         <button
           key={item.label}
           onClick={item.action}
-          className={`flex flex-col items-center gap-0.5 text-[10px] font-medium transition-colors duration-150 active:scale-[0.95] ${
-            activeIndex === i ? "text-accent" : "text-tertiary-custom"
+          className={`flex flex-col items-center gap-0.5 text-[9px] font-medium transition-all duration-150 active:scale-[0.92] ${
+            activeIndex === i ? "text-primary-custom" : "text-tertiary-custom"
           }`}
         >
-          <item.icon size={20} strokeWidth={1.5} />
+          <item.icon size={18} strokeWidth={activeIndex === i ? 2 : 1.5} />
           {item.label}
         </button>
       ))}

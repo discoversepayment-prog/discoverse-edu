@@ -1,4 +1,3 @@
-import { User } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,23 +8,23 @@ export function TopBar({ title }: { title?: string }) {
   const avatarUrl = user?.user_metadata?.avatar_url;
 
   return (
-    <header className="h-14 bg-card border-b border-subtle flex items-center px-4 md:px-5 gap-3 shrink-0">
+    <header className="h-12 bg-background border-b border-border flex items-center px-4 md:px-5 gap-3 shrink-0">
       <div className="md:hidden">
-        <Logo size={22} />
+        <Logo size={20} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-medium text-primary-custom truncate">{title || "Discoverse"}</p>
+        <p className="text-[13px] font-semibold text-primary-custom tracking-tight truncate">{title || "Discoverse"}</p>
       </div>
 
-      <div className="bg-border-subtle rounded-lg p-[3px] flex">
+      <div className="bg-secondary rounded-lg p-[2px] flex">
         {(["chat", "learn"] as const).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
-            className={`px-3 md:px-4 py-1.5 text-[12px] md:text-[13px] rounded-md transition-all duration-150 capitalize ${
+            className={`px-3 py-1 text-[11px] rounded-md transition-all duration-200 capitalize font-medium tracking-wide ${
               mode === m
-                ? "bg-card border border-border shadow-sm font-medium text-primary-custom"
-                : "text-secondary-custom hover:text-primary-custom"
+                ? "bg-primary text-primary-foreground"
+                : "text-tertiary-custom hover:text-primary-custom"
             }`}
           >
             {m}
@@ -34,13 +33,13 @@ export function TopBar({ title }: { title?: string }) {
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="flex rounded-full overflow-hidden border border-border h-7">
+        <div className="flex rounded-md overflow-hidden border border-border h-6">
           {(["en", "hi"] as const).map((l) => (
             <button
               key={l}
               onClick={() => setLanguage(l)}
-              className={`px-2 text-[11px] font-medium transition-colors duration-150 ${
-                language === l ? "bg-accent text-accent-foreground" : "text-secondary-custom"
+              className={`px-2 text-[10px] font-medium transition-colors duration-150 ${
+                language === l ? "bg-primary text-primary-foreground" : "text-tertiary-custom hover:text-primary-custom"
               }`}
             >
               {l === "en" ? "EN" : "हिं"}
@@ -48,10 +47,12 @@ export function TopBar({ title }: { title?: string }) {
           ))}
         </div>
         {avatarUrl ? (
-          <img src={avatarUrl} className="w-7 h-7 rounded-full object-cover" alt="" />
+          <img src={avatarUrl} className="w-6 h-6 rounded-full object-cover ring-1 ring-border" alt="" />
         ) : (
-          <div className="w-7 h-7 rounded-full bg-accent/10 flex items-center justify-center">
-            <User size={13} strokeWidth={1.5} className="text-accent" />
+          <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
+            <span className="text-[10px] font-bold text-tertiary-custom">
+              {user?.email?.[0]?.toUpperCase() || "?"}
+            </span>
           </div>
         )}
       </div>
