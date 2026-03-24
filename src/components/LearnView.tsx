@@ -345,39 +345,38 @@ export function LearnView() {
       </div>
 
       {/* 3D Canvas */}
-      <div className="flex-1 mx-3 mb-1 bg-canvas rounded-2xl border border-subtle overflow-hidden relative min-h-0">
+      <div className="flex-1 mx-3 mb-1 bg-canvas rounded-xl border border-border overflow-hidden relative min-h-0">
         {isLoading ? (
-          <div className="h-full flex flex-col items-center justify-center gap-4 px-6 bg-gradient-to-b from-canvas to-background">
-            {/* Premium loading animation */}
+          <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
             <div className="relative">
-              <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center">
-                <Atom size={32} strokeWidth={1} className="text-accent" style={{ animation: "spin 3s linear infinite" }} />
+              <div className="w-14 h-14 rounded-xl bg-secondary flex items-center justify-center">
+                <Atom size={28} strokeWidth={1} className="text-primary-custom" style={{ animation: "spin 3s linear infinite" }} />
               </div>
-              <div className="absolute -inset-3 rounded-2xl border border-accent/20" style={{ animation: "pulse-dot 2s ease-in-out infinite" }} />
+              <div className="absolute -inset-3 rounded-xl border border-border" style={{ animation: "pulse-dot 2s ease-in-out infinite" }} />
             </div>
-            <div className="w-full max-w-[200px]">
-              <Progress value={loadingProgress} className="h-1.5" />
+            <div className="w-full max-w-[180px]">
+              <Progress value={loadingProgress} className="h-1" />
             </div>
-            <p className="text-[13px] text-primary-custom font-medium text-center animate-fade-in">{loadingMsg}</p>
-            <p className="text-[10px] text-tertiary-custom">This usually takes 5-10 seconds</p>
+            <p className="text-[11px] text-primary-custom font-medium text-center animate-fade-in">{loadingMsg}</p>
+            <p className="text-[9px] text-tertiary-custom uppercase tracking-widest">5-10 seconds</p>
           </div>
         ) : simulation ? (
           <>
             <ModelViewer modelUrl={modelUrl} highlightPart={resolvedHighlightPart} highlightColor={step?.color} onPartsLoaded={onPartsLoaded} />
 
-            {/* Step indicator pill */}
-            <div className="absolute top-2.5 left-2.5 bg-card/90 backdrop-blur-sm border border-border rounded-full px-2.5 py-1 flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: step?.color || "hsl(var(--accent))" }} />
-              <span className="text-[11px] font-medium text-primary-custom">
+            {/* Step indicator */}
+            <div className="absolute top-2.5 left-2.5 bg-card/90 backdrop-blur-sm border border-border rounded-md px-2 py-1 flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: step?.color || "hsl(var(--primary))" }} />
+              <span className="text-[10px] font-bold text-primary-custom font-mono">
                 {currentStep + 1}/{simulation.steps.length}
               </span>
             </div>
 
-            {/* Part label floating */}
+            {/* Part label */}
             {step && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border px-3 py-1.5 rounded-full shadow-sm animate-fade-in" key={currentStep}>
-                <p className="text-[12px] font-medium text-primary-custom flex items-center gap-1.5">
-                  <Eye size={12} className="text-accent" />
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border px-3 py-1 rounded-md animate-fade-in" key={currentStep}>
+                <p className="text-[10px] font-bold text-primary-custom flex items-center gap-1.5 uppercase tracking-wider">
+                  <Eye size={10} className="text-tertiary-custom" />
                   {language === "en" ? step.label_en : step.label_hi}
                 </p>
               </div>
@@ -385,8 +384,8 @@ export function LearnView() {
 
             {/* Canvas controls */}
             <div className="absolute top-2.5 right-2.5 flex gap-1">
-              <button className="w-8 h-8 bg-card/90 backdrop-blur-sm border border-border rounded-full flex items-center justify-center active:scale-[0.95]">
-                <RotateCcw size={13} strokeWidth={1.5} className="text-secondary-custom" />
+              <button className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center active:scale-[0.95]">
+                <RotateCcw size={11} strokeWidth={1.5} className="text-tertiary-custom" />
               </button>
             </div>
           </>
