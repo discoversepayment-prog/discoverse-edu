@@ -342,7 +342,6 @@ export function LearnView() {
             {t}
           </button>
         ))}
-        ))}
       </div>
 
       {/* 3D Canvas */}
