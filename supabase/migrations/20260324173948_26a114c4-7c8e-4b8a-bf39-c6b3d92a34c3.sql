@@ -1,0 +1,1 @@
+CREATE POLICY "Authenticated users can upload models" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'models'); CREATE POLICY "Authenticated users can update models" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'models'); CREATE POLICY "Anyone can read models" ON storage.objects FOR SELECT TO public USING (bucket_id = 'models');
