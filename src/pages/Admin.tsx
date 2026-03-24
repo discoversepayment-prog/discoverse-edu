@@ -5,7 +5,7 @@ import {
   AlertTriangle, Bot, Sparkles, Eye, EyeOff, Save, Trash2, ChevronRight,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+
 import { supabase } from "@/integrations/supabase/client";
 
 const adminNav = [
