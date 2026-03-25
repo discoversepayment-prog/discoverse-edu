@@ -414,7 +414,7 @@ function ModelsTable() {
           <h1 className="text-[20px] font-semibold text-primary-custom">Models</h1>
           <p className="text-[12px] text-tertiary-custom mt-0.5">{models.length} models in database</p>
         </div>
-        <button onClick={() => navigate("/admin/upload")} className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97]">
+        <button onClick={() => navigate("/wedisni/upload")} className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97]">
           <Plus size={15} strokeWidth={1.5} /> Upload
         </button>
       </div>
