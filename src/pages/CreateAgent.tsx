@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { MainLayout } from "@/components/MainLayout";
-import { Bot, X, Save, Sparkles, ArrowLeft, Camera, Image, FileText, Presentation, Globe, Youtube } from "lucide-react";
+import { Bot, X, Save, Sparkles, ArrowLeft, Camera, Image, FileText, Presentation, Globe, Youtube, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
