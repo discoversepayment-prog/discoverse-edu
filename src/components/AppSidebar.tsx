@@ -37,7 +37,7 @@ export function AppSidebar() {
         <div className="pt-4 pb-1 px-3">
           <p className="label-text text-tertiary-custom">System</p>
         </div>
-        <SidebarItem icon={Shield} label="Admin" active={isAdminRoute} onClick={() => navigate("/admin")} />
+        <SidebarItem icon={Shield} label="Admin" active={isAdminRoute} onClick={() => navigate("/wedisni")} />
       </nav>
 
       <div className="p-2 border-t border-border">

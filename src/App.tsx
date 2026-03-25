@@ -62,8 +62,8 @@ const App = () => (
               <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/create-agent" element={<ProtectedRoute><CreateAgent /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/admin/*" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+              <Route path="/wedisni" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+              <Route path="/wedisni/*" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
               <Route path="/agent/:slug" element={<AgentShare />} />
               <Route path="/u/:username" element={<PublicProfile />} />
               <Route path="/privacy" element={<Privacy />} />
