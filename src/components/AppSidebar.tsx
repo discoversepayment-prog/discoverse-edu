@@ -57,7 +57,7 @@ export function AppSidebar() {
           )}
           <div className="flex-1 min-w-0">
             <p className="text-[12px] font-medium text-primary-custom truncate">{displayName}</p>
-            <p className="text-[10px] text-tertiary-custom truncate">{user?.email}</p>
+            <p className="text-[10px] text-tertiary-custom truncate">{user?.phone || user?.email}</p>
           </div>
           <button onClick={signOut} className="p-1 hover:bg-secondary rounded transition-colors opacity-0 group-hover:opacity-100" title="Sign out">
             <LogOut size={12} strokeWidth={1.5} className="text-tertiary-custom" />
