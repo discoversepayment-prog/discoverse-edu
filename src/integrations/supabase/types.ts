@@ -190,10 +190,38 @@ export type Database = {
         }
         Relationships: []
       }
+      otp_codes: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          otp: string
+          phone: string
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          otp: string
+          phone: string
+          verified?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          otp?: string
+          phone?: string
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           bio: string | null
+          can_create_agent: boolean | null
           created_at: string
           display_name: string | null
           id: string
@@ -206,6 +234,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          can_create_agent?: boolean | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -218,6 +247,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          can_create_agent?: boolean | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -370,6 +400,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      store_otp: { Args: { _otp: string; _phone: string }; Returns: undefined }
+      verify_otp: { Args: { _otp: string; _phone: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "student"
