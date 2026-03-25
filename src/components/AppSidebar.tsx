@@ -9,7 +9,7 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  const isAdminRoute = location.pathname.startsWith("/wedisni");
 
   const handleNav = (target: "chat" | "learn") => {
     setMode(target);
