@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 export function AppSidebar() {
   const { mode, setMode } = useApp();
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminRoute = location.pathname.startsWith("/wedisni");
@@ -34,10 +34,14 @@ export function AppSidebar() {
         <SidebarItem icon={Clock} label="Library" active={location.pathname === "/library"} onClick={() => navigate("/library")} />
         <SidebarItem icon={User} label="Profile" active={location.pathname === "/profile"} onClick={() => navigate("/profile")} />
 
-        <div className="pt-4 pb-1 px-3">
-          <p className="label-text text-tertiary-custom">System</p>
-        </div>
-        <SidebarItem icon={Shield} label="Admin" active={isAdminRoute} onClick={() => navigate("/wedisni")} />
+        {isAdmin && (
+          <>
+            <div className="pt-4 pb-1 px-3">
+              <p className="label-text text-tertiary-custom">System</p>
+            </div>
+            <SidebarItem icon={Shield} label="Admin" active={isAdminRoute} onClick={() => navigate("/wedisni")} />
+          </>
+        )}
       </nav>
 
       <div className="p-2 border-t border-border">
