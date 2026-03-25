@@ -9,11 +9,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const adminNav = [
-  { icon: Database, label: "Models", path: "/admin" },
-  { icon: Bot, label: "AI Agents", path: "/admin/agents" },
-  { icon: Upload, label: "Upload", path: "/admin/upload" },
-  { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
-  { icon: Layers, label: "Cache", path: "/admin/cache" },
+  { icon: Database, label: "Models", path: "/wedisni" },
+  { icon: Bot, label: "AI Agents", path: "/wedisni/agents" },
+  { icon: Upload, label: "Upload", path: "/wedisni/upload" },
+  { icon: BarChart3, label: "Analytics", path: "/wedisni/analytics" },
+  { icon: Layers, label: "Cache", path: "/wedisni/cache" },
 ];
 
 const subjectColors: Record<string, string> = {
@@ -414,7 +414,7 @@ function ModelsTable() {
           <h1 className="text-[20px] font-semibold text-primary-custom">Models</h1>
           <p className="text-[12px] text-tertiary-custom mt-0.5">{models.length} models in database</p>
         </div>
-        <button onClick={() => navigate("/admin/upload")} className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97]">
+        <button onClick={() => navigate("/wedisni/upload")} className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97]">
           <Plus size={15} strokeWidth={1.5} /> Upload
         </button>
       </div>
@@ -481,7 +481,7 @@ function UploadView() {
       named_parts: form.named_parts.split(",").map((k) => k.trim()).filter(Boolean),
       source: form.source || null, license: form.license || null, status, uploaded_by: user?.id,
     });
-    if (insertError) { alert("Save failed: " + insertError.message); } else { navigate("/admin"); }
+    if (insertError) { alert("Save failed: " + insertError.message); } else { navigate("/wedisni"); }
     setUploading(false);
   };
 

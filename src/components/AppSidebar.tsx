@@ -6,17 +6,17 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 export function AppSidebar() {
   const { mode, setMode } = useApp();
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const isAdminRoute = location.pathname.startsWith("/admin");
+  const isAdminRoute = location.pathname.startsWith("/wedisni");
 
   const handleNav = (target: "chat" | "learn") => {
     setMode(target);
     if (location.pathname !== "/app") navigate("/app");
   };
 
-  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Explorer";
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.phone_number || user?.email?.split("@")[0] || "Explorer";
   const avatarUrl = user?.user_metadata?.avatar_url;
 
   return (
@@ -34,10 +34,14 @@ export function AppSidebar() {
         <SidebarItem icon={Clock} label="Library" active={location.pathname === "/library"} onClick={() => navigate("/library")} />
         <SidebarItem icon={User} label="Profile" active={location.pathname === "/profile"} onClick={() => navigate("/profile")} />
 
-        <div className="pt-4 pb-1 px-3">
-          <p className="label-text text-tertiary-custom">System</p>
-        </div>
-        <SidebarItem icon={Shield} label="Admin" active={isAdminRoute} onClick={() => navigate("/admin")} />
+        {isAdmin && (
+          <>
+            <div className="pt-4 pb-1 px-3">
+              <p className="label-text text-tertiary-custom">System</p>
+            </div>
+            <SidebarItem icon={Shield} label="Admin" active={isAdminRoute} onClick={() => navigate("/wedisni")} />
+          </>
+        )}
       </nav>
 
       <div className="p-2 border-t border-border">
@@ -53,7 +57,7 @@ export function AppSidebar() {
           )}
           <div className="flex-1 min-w-0">
             <p className="text-[12px] font-medium text-primary-custom truncate">{displayName}</p>
-            <p className="text-[10px] text-tertiary-custom truncate">{user?.email}</p>
+            <p className="text-[10px] text-tertiary-custom truncate">{user?.phone || user?.email}</p>
           </div>
           <button onClick={signOut} className="p-1 hover:bg-secondary rounded transition-colors opacity-0 group-hover:opacity-100" title="Sign out">
             <LogOut size={12} strokeWidth={1.5} className="text-tertiary-custom" />

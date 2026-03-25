@@ -83,13 +83,18 @@ export default function Library() {
   };
 
   const loadTodayCount = async () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Reset at 6 AM instead of midnight
+    const now = new Date();
+    const resetTime = new Date();
+    resetTime.setHours(6, 0, 0, 0);
+    if (now.getHours() < 6) {
+      resetTime.setDate(resetTime.getDate() - 1);
+    }
     const { count } = await supabase
       .from("user_library")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user!.id)
-      .gte("created_at", today.toISOString());
+      .gte("created_at", resetTime.toISOString());
     setTodayCount(count || 0);
   };
 
@@ -154,7 +159,7 @@ export default function Library() {
               <p className="text-[11px] font-semibold text-primary-custom">
                 {remaining > 0 ? `${remaining} generation${remaining !== 1 ? "s" : ""} remaining today` : "Daily limit reached"}
               </p>
-              <p className="text-[9px] text-tertiary-custom">{MAX_FREE_GENERATIONS} free per day · Resets at midnight</p>
+              <p className="text-[9px] text-tertiary-custom">{MAX_FREE_GENERATIONS} free per day · Resets at 6:00 AM</p>
             </div>
           </div>
           {remaining === 0 && (
