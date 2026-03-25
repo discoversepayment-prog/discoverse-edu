@@ -159,7 +159,7 @@ export default function Library() {
               <p className="text-[11px] font-semibold text-primary-custom">
                 {remaining > 0 ? `${remaining} generation${remaining !== 1 ? "s" : ""} remaining today` : "Daily limit reached"}
               </p>
-              <p className="text-[9px] text-tertiary-custom">{MAX_FREE_GENERATIONS} free per day · Resets at midnight</p>
+              <p className="text-[9px] text-tertiary-custom">{MAX_FREE_GENERATIONS} free per day · Resets at 6:00 AM</p>
             </div>
           </div>
           {remaining === 0 && (

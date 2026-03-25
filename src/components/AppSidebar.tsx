@@ -16,7 +16,7 @@ export function AppSidebar() {
     if (location.pathname !== "/app") navigate("/app");
   };
 
-  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Explorer";
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.phone_number || user?.email?.split("@")[0] || "Explorer";
   const avatarUrl = user?.user_metadata?.avatar_url;
 
   return (
