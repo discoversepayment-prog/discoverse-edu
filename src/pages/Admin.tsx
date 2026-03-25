@@ -9,11 +9,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 const adminNav = [
-  { icon: Database, label: "Models", path: "/admin" },
-  { icon: Bot, label: "AI Agents", path: "/admin/agents" },
-  { icon: Upload, label: "Upload", path: "/admin/upload" },
-  { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
-  { icon: Layers, label: "Cache", path: "/admin/cache" },
+  { icon: Database, label: "Models", path: "/wedisni" },
+  { icon: Bot, label: "AI Agents", path: "/wedisni/agents" },
+  { icon: Upload, label: "Upload", path: "/wedisni/upload" },
+  { icon: BarChart3, label: "Analytics", path: "/wedisni/analytics" },
+  { icon: Layers, label: "Cache", path: "/wedisni/cache" },
 ];
 
 const subjectColors: Record<string, string> = {
