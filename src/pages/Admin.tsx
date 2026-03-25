@@ -481,7 +481,7 @@ function UploadView() {
       named_parts: form.named_parts.split(",").map((k) => k.trim()).filter(Boolean),
       source: form.source || null, license: form.license || null, status, uploaded_by: user?.id,
     });
-    if (insertError) { alert("Save failed: " + insertError.message); } else { navigate("/admin"); }
+    if (insertError) { alert("Save failed: " + insertError.message); } else { navigate("/wedisni"); }
     setUploading(false);
   };
 
