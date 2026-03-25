@@ -54,15 +54,37 @@ export default function CreateAgent() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [saving, setSaving] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(!!editId);
+  const [canCreate, setCanCreate] = useState(false);
+  const [checkingPermission, setCheckingPermission] = useState(true);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({ ...DEFAULT_FORM });
   const [knowledgeInput, setKnowledgeInput] = useState("");
   const [paperInput, setPaperInput] = useState("");
+
+  // Check if user has permission to create agents
+  useEffect(() => {
+    if (!user) return;
+    const checkPermission = async () => {
+      if (isAdmin) {
+        setCanCreate(true);
+        setCheckingPermission(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("can_create_agent")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setCanCreate(data?.can_create_agent || false);
+      setCheckingPermission(false);
+    };
+    checkPermission();
+  }, [user, isAdmin]);
 
   // Load existing agent for editing
   useEffect(() => {

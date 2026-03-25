@@ -1,24 +1,26 @@
 import { MessageSquare, BookOpen, Clock, User, Shield } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export function MobileNav() {
   const { mode, setMode } = useApp();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const items = [
-    { icon: MessageSquare, label: "Agents", action: () => { setMode("chat"); navigate("/app"); } },
-    { icon: BookOpen, label: "Learn", action: () => { setMode("learn"); navigate("/app"); } },
-    { icon: Clock, label: "Library", action: () => navigate("/library") },
-    { icon: Shield, label: "Admin", action: () => navigate("/admin") },
-    { icon: User, label: "Profile", action: () => navigate("/profile") },
-  ];
+    { icon: MessageSquare, label: "Agents", action: () => { setMode("chat"); navigate("/app"); }, show: true },
+    { icon: BookOpen, label: "Learn", action: () => { setMode("learn"); navigate("/app"); }, show: true },
+    { icon: Clock, label: "Library", action: () => navigate("/library"), show: true },
+    { icon: Shield, label: "Admin", action: () => navigate("/wedisni"), show: isAdmin },
+    { icon: User, label: "Profile", action: () => navigate("/profile"), show: true },
+  ].filter(i => i.show);
 
   const getActiveIndex = () => {
     if (location.pathname === "/profile") return items.findIndex(i => i.label === "Profile");
     if (location.pathname === "/library") return items.findIndex(i => i.label === "Library");
-    if (location.pathname.startsWith("/admin")) return items.findIndex(i => i.label === "Admin");
+    if (location.pathname.startsWith("/wedisni")) return items.findIndex(i => i.label === "Admin");
     if (mode === "learn" && location.pathname === "/app") return 1;
     return 0;
   };
