@@ -200,11 +200,28 @@ export default function CreateAgent() {
     navigate("/profile");
   };
 
-  if (loadingEdit) {
+  if (checkingPermission || loadingEdit) {
     return (
-      <MainLayout title="Edit Agent">
+      <MainLayout title="Agent">
         <div className="flex items-center justify-center h-full">
           <div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (!canCreate && !editId) {
+    return (
+      <MainLayout title="Create Agent">
+        <div className="flex flex-col items-center justify-center h-full gap-4 px-6 text-center">
+          <Shield size={36} strokeWidth={1} className="text-tertiary-custom" />
+          <h2 className="text-lg font-bold text-primary-custom">Agent Creation Restricted</h2>
+          <p className="text-[13px] text-secondary-custom max-w-sm">
+            Agent creation is currently available only for approved creators. Contact the admin to get access.
+          </p>
+          <button onClick={() => navigate(-1)} className="px-5 py-2 bg-primary text-primary-foreground rounded-lg text-[12px] font-bold">
+            Go Back
+          </button>
         </div>
       </MainLayout>
     );
