@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
-import { Phone, ArrowRight, Shield } from "lucide-react";
+import { Phone, ArrowRight, Shield, User, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { generateNickname } from "@/lib/nicknames";
 
-type AuthStep = "phone" | "otp";
+type AuthStep = "phone" | "otp" | "setup_profile";
 
 export default function Auth() {
   const [step, setStep] = useState<AuthStep>("phone");
@@ -14,6 +14,9 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(0);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [profileForm, setProfileForm] = useState({ display_name: "", username: "" });
+  const [newUserId, setNewUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -40,7 +43,7 @@ export default function Auth() {
 
       setStep("otp");
       setCountdown(60);
-      toast.success("OTP sent to " + cleanPhone);
+      toast.success("OTP sent!");
     } catch (err: any) {
       setError(err.message || "Failed to send OTP");
     }
@@ -86,21 +89,64 @@ export default function Auth() {
         }
       }
 
-      // Auto-generate nickname for new users
+      // If new user, show profile setup step
       if (data.needs_username && data.user_id) {
+        setIsNewUser(true);
+        setNewUserId(data.user_id);
         const nickname = generateNickname();
-        await supabase
-          .from("profiles")
-          .update({
-            username: nickname,
-            display_name: nickname,
-          })
-          .eq("user_id", data.user_id);
+        setProfileForm({ display_name: "", username: nickname });
+        setStep("setup_profile");
+        setLoading(false);
+        return;
       }
 
-      toast.success(data.needs_username ? "Welcome to DiscoverSE!" : "Welcome back!");
+      toast.success("Welcome back!");
     } catch (err: any) {
       setError(err.message || "Verification failed");
+    }
+    setLoading(false);
+  };
+
+  const handleSaveProfile = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!profileForm.display_name.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+    if (!profileForm.username.trim() || profileForm.username.length < 3) {
+      setError("Username must be at least 3 characters");
+      return;
+    }
+    setLoading(true);
+    setError("");
+
+    const username = profileForm.username.toLowerCase().replace(/[^a-z0-9_]/g, "");
+
+    try {
+      // Check if username is taken
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("username", username)
+        .maybeSingle();
+
+      if (existing && existing.user_id !== newUserId) {
+        setError("Username already taken, try another");
+        setLoading(false);
+        return;
+      }
+
+      await supabase
+        .from("profiles")
+        .update({
+          username,
+          display_name: profileForm.display_name.trim(),
+        })
+        .eq("user_id", newUserId!);
+
+      toast.success("Welcome to DiscoverSE! 🎉");
+    } catch (err: any) {
+      setError(err.message || "Failed to save profile");
     }
     setLoading(false);
   };
@@ -125,7 +171,7 @@ export default function Auth() {
             AI-powered 3D learning with specialized agents, step-by-step simulations, and natural voice narration.
           </p>
           <div className="mt-12 space-y-4">
-            {["Phone OTP login — no password needed", "Interactive 3D simulations", "Voice narration in Hindi & English"].map((f) => (
+            {["Quick phone login — no password needed", "Interactive 3D simulations", "Voice narration in Hindi & English"].map((f) => (
               <div key={f} className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-md bg-primary flex items-center justify-center shrink-0">
                   <ArrowRight size={10} strokeWidth={3} className="text-primary-foreground" />
@@ -181,10 +227,6 @@ export default function Auth() {
                   )}
                 </button>
               </form>
-
-              <p className="text-center text-[10px] text-tertiary-custom mt-6">
-                Powered by Aakash SMS · Nepal only
-              </p>
             </>
           )}
 
@@ -192,7 +234,7 @@ export default function Auth() {
             <>
               <h2 className="text-xl font-bold text-primary-custom mb-1 tracking-tight">Enter OTP</h2>
               <p className="text-[12px] text-secondary-custom mb-7">
-                Code sent to <span className="font-semibold text-primary-custom">{phone}</span>
+                Code sent to your phone
                 <button onClick={() => { setStep("phone"); setOtp(""); setError(""); }} className="ml-2 text-primary-custom underline text-[11px]">Change</button>
               </p>
 
@@ -252,6 +294,65 @@ export default function Auth() {
                     </button>
                   )}
                 </div>
+              </form>
+            </>
+          )}
+
+          {step === "setup_profile" && (
+            <>
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 rounded-xl bg-secondary flex items-center justify-center mx-auto mb-3">
+                  <Sparkles size={24} className="text-primary-custom" />
+                </div>
+                <h2 className="text-xl font-bold text-primary-custom mb-1 tracking-tight">Welcome! Set up your profile</h2>
+                <p className="text-[12px] text-secondary-custom">Choose a display name and username</p>
+              </div>
+
+              <form onSubmit={handleSaveProfile} className="space-y-3">
+                <div>
+                  <label className="text-[10px] font-semibold text-tertiary-custom block mb-1.5 uppercase tracking-widest">Your Name</label>
+                  <div className="relative">
+                    <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom" />
+                    <input
+                      value={profileForm.display_name}
+                      onChange={(e) => { setProfileForm({ ...profileForm, display_name: e.target.value }); setError(""); }}
+                      placeholder="What should we call you?"
+                      className="w-full h-11 bg-secondary border border-border rounded-lg pl-9 pr-4 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30 transition-colors"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-semibold text-tertiary-custom block mb-1.5 uppercase tracking-widest">Username</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom text-[12px] font-mono">@</span>
+                    <input
+                      value={profileForm.username}
+                      onChange={(e) => { setProfileForm({ ...profileForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }); setError(""); }}
+                      placeholder="username"
+                      className="w-full h-11 bg-secondary border border-border rounded-lg pl-8 pr-4 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30 transition-colors"
+                    />
+                  </div>
+                  <p className="text-[9px] text-tertiary-custom mt-1">You can change this later in your profile</p>
+                </div>
+
+                {error && <p className="text-[11px] text-destructive">{error}</p>}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-11 bg-primary text-primary-foreground rounded-lg text-[12px] font-bold hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <ArrowRight size={14} />
+                      Get Started
+                    </>
+                  )}
+                </button>
               </form>
             </>
           )}

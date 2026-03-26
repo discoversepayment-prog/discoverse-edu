@@ -123,7 +123,8 @@ const NAV_LINKS = [
   { label: "AI Agents", href: "#agents" },
   { label: "3D Simulations", href: "#simulations" },
   { label: "Learn Mode", href: "#features" },
-  { label: "Company", href: "#company" },
+  { label: "Invest", href: "#invest" },
+  { label: "Contact", href: "#company" },
 ];
 
 export default function Landing() {
@@ -150,7 +151,7 @@ export default function Landing() {
   const submitInquiry = async (type: "invest" | "contact", form: { name: string; email: string; message: string }) => {
     if (!form.name || !form.email) { toast.error("Name and email required"); return; }
     setSubmitting(true);
-    const { error } = await (supabase as any).from("contact_inquiries").insert({
+    const { error } = await supabase.from("contact_inquiries").insert({
       name: form.name, email: form.email, message: form.message || null, type,
     });
     if (error) toast.error("Failed to submit");
@@ -476,7 +477,7 @@ export default function Landing() {
       </section>
 
       {/* ═══ INVEST IN DISCOVERSE ═══ */}
-      <section className="py-20 px-5 border-t border-border">
+      <section id="invest" className="py-20 px-5 border-t border-border">
         <div className="max-w-4xl mx-auto">
           <Reveal className="text-center mb-14">
             <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.2em] mb-3">Invest in the Future</p>

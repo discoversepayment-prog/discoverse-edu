@@ -29,7 +29,7 @@ const subjectColors: Record<string, string> = {
   mathematics: "bg-pink-50 text-pink-700",
 };
 
-const ADMIN_PASSWORD = "nishant@123";
+const ADMIN_PASSWORD = "nishant@discoverse";
 
 export default function Admin() {
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("admin_unlocked") === "true");
@@ -258,7 +258,7 @@ function InquiriesView() {
   useEffect(() => { loadInquiries(); }, []);
 
   const loadInquiries = async () => {
-    const { data } = await (supabase as any)
+    const { data } = await supabase
       .from("contact_inquiries")
       .select("*")
       .order("created_at", { ascending: false });

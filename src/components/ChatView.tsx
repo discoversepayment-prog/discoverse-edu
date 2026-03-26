@@ -28,6 +28,7 @@ export function ChatView() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [showAgentList, setShowAgentList] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [canCreateAgent, setCanCreateAgent] = useState(false);
   const { language } = useApp();
   const { user } = useAuth();
   const { messages, isLoading, send, clear, pastConversations, loadConversations, resumeConversation } = useStreamChat();
@@ -45,7 +46,18 @@ export function ChatView() {
       if (data && data.length > 0) setAgents(data);
     };
     loadAgents();
-  }, []);
+
+    // Check agent creation permission
+    if (user) {
+      const checkPerm = async () => {
+        const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+        if (roleData) { setCanCreateAgent(true); return; }
+        const { data: profile } = await supabase.from("profiles").select("can_create_agent").eq("user_id", user.id).maybeSingle();
+        setCanCreateAgent(profile?.can_create_agent || false);
+      };
+      checkPerm();
+    }
+  }, [user]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => {
@@ -81,10 +93,41 @@ export function ChatView() {
     toast.success("Agent link copied!");
   };
 
-  const filteredAgents = agents.filter(a =>
-    a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (a.knowledge_areas || []).some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Personalized agent sorting: agents user has chatted with recently first, then by popularity
+  const [agentUsage, setAgentUsage] = useState<Record<string, number>>({});
+  
+  useEffect(() => {
+    if (!user) return;
+    const loadUsage = async () => {
+      const { data } = await supabase
+        .from("conversation_history")
+        .select("agent_id, updated_at")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false });
+      if (data) {
+        const usage: Record<string, number> = {};
+        data.forEach((c, i) => {
+          if (!usage[c.agent_id]) usage[c.agent_id] = data.length - i;
+        });
+        setAgentUsage(usage);
+      }
+    };
+    loadUsage();
+  }, [user, agents]);
+
+  const sortedAgents = [...agents]
+    .filter(a =>
+      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.knowledge_areas || []).some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
+    .sort((a, b) => {
+      const aScore = agentUsage[a.id] || 0;
+      const bScore = agentUsage[b.id] || 0;
+      if (aScore !== bScore) return bScore - aScore; // Previously used first
+      return 0;
+    });
+
+  const filteredAgents = sortedAgents;
 
   // ── Agent Grid View ──
   if (showAgentList && !selectedAgent) {
@@ -96,12 +139,14 @@ export function ChatView() {
               <h2 className="text-lg font-bold text-primary-custom tracking-tight">AI Agents</h2>
               <p className="text-[10px] text-tertiary-custom mt-0.5 uppercase tracking-widest">Specialized AI built by creators</p>
             </div>
-            <button
-              onClick={() => navigate("/create-agent")}
-              className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-[11px] font-bold hover:bg-primary/90 press transition-all"
-            >
-              <Plus size={12} /> Create
-            </button>
+            {canCreateAgent && (
+              <button
+                onClick={() => navigate("/create-agent")}
+                className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-[11px] font-bold hover:bg-primary/90 press transition-all"
+              >
+                <Plus size={12} /> Create
+              </button>
+            )}
           </div>
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom" />
@@ -122,12 +167,14 @@ export function ChatView() {
               </div>
               <p className="text-[12px] font-medium text-secondary-custom">No agents available yet</p>
               <p className="text-[10px] text-tertiary-custom mt-1">Be the first to create one!</p>
-              <button
-                onClick={() => navigate("/create-agent")}
-                className="mt-4 flex items-center gap-1.5 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-[11px] font-bold press"
-              >
-                <Sparkles size={12} /> Create Agent
-              </button>
+              {canCreateAgent && (
+                <button
+                  onClick={() => navigate("/create-agent")}
+                  className="mt-4 flex items-center gap-1.5 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-[11px] font-bold press"
+                >
+                  <Sparkles size={12} /> Create Agent
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 pt-2">
