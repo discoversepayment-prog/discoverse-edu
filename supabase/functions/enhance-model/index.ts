@@ -38,7 +38,7 @@ const sanitizeSimulation = (raw: unknown, modelName: string, namedParts: string[
       part: resolvedPart,
       color: isHexColor(step.color) ? step.color : fallbackColors[index % fallbackColors.length],
       narration_en: typeof step.narration_en === "string" && step.narration_en.trim() ? step.narration_en.trim() : `Point: ${modelName}, step ${index + 1}.`,
-      narration_hi: typeof step.narration_hi === "string" && step.narration_hi.trim() ? step.narration_hi.trim() : `${modelName} ko samjhau: step ${index + 1}.`,
+      narration_hi: typeof step.narration_hi === "string" && step.narration_hi.trim() ? step.narration_hi.trim() : `${modelName} का चरण ${index + 1}।`,
       label_en: typeof step.label_en === "string" && step.label_en.trim() ? step.label_en.trim() : modelName,
       label_hi: typeof step.label_hi === "string" && step.label_hi.trim() ? step.label_hi.trim() : modelName,
       camera: safeCamera,
@@ -47,7 +47,7 @@ const sanitizeSimulation = (raw: unknown, modelName: string, namedParts: string[
   if (steps.length === 0) {
     return {
       title: modelName,
-      steps: [{ title: `${modelName}`, part: "", color: fallbackColors[0], narration_en: `This is ${modelName}. Let's understand it.`, narration_hi: `Yo ${modelName} ho. Bujhau hai.`, label_en: modelName, label_hi: modelName, camera: { x: 0, y: 0, z: 4 } }],
+      steps: [{ title: `${modelName}`, part: "", color: fallbackColors[0], narration_en: `This is ${modelName}. Let's understand it.`, narration_hi: `यह ${modelName} है। आइए इसे समझते हैं।`, label_en: modelName, label_hi: modelName, camera: { x: 0, y: 0, z: 4 } }],
     };
   }
   return { title: typeof parsed?.title === "string" && parsed.title.trim() ? parsed.title.trim() : modelName, steps };
@@ -74,8 +74,8 @@ Your narration style:
 - Direct, punchy, 1-2 sentences MAX per step
 - "This is the left ventricle. It pumps oxygenated blood to your body." — NOT long explanations
 - Think Instagram Reels narration: fast, clear, memorable
-- For Hindi narration: use ROMANIZED Nepali/Hindi (like "Yo left ventricle ho. Yo le oxygen bhako ragat body ma pathaucha.")
-- NO formal Hindi script. Always Romanized.
+- For Hindi narration (narration_hi): use PROPER HINDI in Devanagari script (हिंदी). Example: "यह बायाँ निलय है। यह ऑक्सीजन युक्त रक्त को शरीर में पंप करता है।"
+- DO NOT use Romanized Nepali or Romanized Hindi. Always use proper Devanagari Hindi script for narration_hi and label_hi fields.
 - Make it feel warm, like a friend explaining quickly
 Return ONLY valid JSON (no markdown, no code block).`;
 
@@ -91,9 +91,9 @@ Return JSON:
       "part": "exact mesh name or empty",
       "color": "#RRGGBB",
       "narration_en": "1-2 punchy sentences. Direct. Not teacher-like.",
-      "narration_hi": "Romanized Nepali/Hindi. Warm, quick. Like a friend.",
+      "narration_hi": "हिंदी में 1-2 वाक्य। Devanagari script only. Warm and friendly.",
       "label_en": "short label",
-      "label_hi": "short romanized label",
+      "label_hi": "हिंदी लेबल (Devanagari)",
       "camera": { "x": 0, "y": 0, "z": 4 }
     }
   ]
@@ -105,7 +105,8 @@ Rules:
 - Step 6: summary (part = "")
 - Middle steps: point to specific parts, 1-2 sentences each
 - Colors: valid 6-digit hex, visually distinct
-- narration_hi MUST be in Romanized Nepali style (e.g. "Yo heart ko right atrium ho. Yo le deoxygenated blood collect garcha.")
+- narration_hi and label_hi MUST be in proper Hindi Devanagari script (e.g. "यह हृदय का दायाँ आलिंद है। यह अशुद्ध रक्त को एकत्र करता है।")
+- DO NOT use Romanized text for Hindi fields. Only Devanagari.
 - Keep it SHORT. Students should understand in SECONDS, not minutes.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

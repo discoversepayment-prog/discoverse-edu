@@ -29,7 +29,7 @@ const subjectColors: Record<string, string> = {
   mathematics: "bg-pink-50 text-pink-700",
 };
 
-const ADMIN_PASSWORD = "nishant@discoverse";
+const ADMIN_PASSWORD = "nishant@123";
 
 export default function Admin() {
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("admin_unlocked") === "true");
