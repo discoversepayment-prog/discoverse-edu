@@ -1,22 +1,20 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
-import { Phone, ArrowRight, Shield, User } from "lucide-react";
+import { Phone, ArrowRight, Shield } from "lucide-react";
 import { toast } from "sonner";
+import { generateNickname } from "@/lib/nicknames";
 
-type AuthStep = "phone" | "otp" | "username";
+type AuthStep = "phone" | "otp";
 
 export default function Auth() {
   const [step, setStep] = useState<AuthStep>("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [countdown, setCountdown] = useState(0);
-  const [userId, setUserId] = useState<string | null>(null);
 
-  // Countdown timer for resend
   useEffect(() => {
     if (countdown <= 0) return;
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
@@ -66,24 +64,18 @@ export default function Auth() {
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
 
-      setUserId(data.user_id);
-
-      // Sign in using the magic link
+      // Sign in
       if (data.action_link) {
-        // Extract the token from the action link
         const url = new URL(data.action_link);
         const token_hash = url.searchParams.get("token") || url.hash?.split("token=")[1];
         
-        // Try to use the OTP verification to sign in
         const email = `${cleanPhone}@phone.discoverse.app`;
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password: `phone_${cleanPhone}_initial`,
         });
 
-        // If password doesn't work, try magic link approach
         if (signInError) {
-          // Use verifyOtp with token_hash
           const { error: verifyError } = await supabase.auth.verifyOtp({
             token_hash: token_hash || "",
             type: "magiclink",
@@ -94,55 +86,21 @@ export default function Auth() {
         }
       }
 
-      if (data.needs_username) {
-        setStep("username");
-      } else {
-        toast.success("Welcome back!");
-        // Session should auto-refresh via auth state change
-      }
-    } catch (err: any) {
-      setError(err.message || "Verification failed");
-    }
-    setLoading(false);
-  };
-
-  const handleSetUsername = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!username.trim() || username.length < 3) {
-      setError("Username must be at least 3 characters");
-      return;
-    }
-    setLoading(true);
-    setError("");
-
-    try {
-      // Check username uniqueness
-      const { data: existing } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("username", username.toLowerCase().trim())
-        .maybeSingle();
-
-      if (existing) {
-        setError("Username already taken");
-        setLoading(false);
-        return;
-      }
-
-      // Update profile
-      if (userId) {
+      // Auto-generate nickname for new users
+      if (data.needs_username && data.user_id) {
+        const nickname = generateNickname();
         await supabase
           .from("profiles")
           .update({
-            username: username.toLowerCase().trim(),
-            display_name: username.trim(),
+            username: nickname,
+            display_name: nickname,
           })
-          .eq("user_id", userId);
+          .eq("user_id", data.user_id);
       }
 
-      toast.success("Welcome to Discoverse!");
+      toast.success(data.needs_username ? "Welcome to DiscoverSE!" : "Welcome back!");
     } catch (err: any) {
-      setError(err.message || "Failed to set username");
+      setError(err.message || "Verification failed");
     }
     setLoading(false);
   };
@@ -158,7 +116,7 @@ export default function Auth() {
         <div className="max-w-md relative z-10">
           <div className="flex items-center gap-2.5 mb-10">
             <Logo size={32} />
-            <span className="text-xl font-bold text-primary-custom tracking-tight">Discoverse</span>
+            <span className="text-xl font-bold text-primary-custom tracking-tight">DiscoverSE</span>
           </div>
           <h1 className="text-[2.5rem] font-black text-primary-custom leading-[1.05] tracking-tight mb-4">
             Explore any topic<br />in interactive 3D
@@ -184,7 +142,7 @@ export default function Auth() {
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-2 mb-10">
             <Logo size={24} />
-            <span className="text-[15px] font-bold text-primary-custom">Discoverse</span>
+            <span className="text-[15px] font-bold text-primary-custom">DiscoverSE</span>
           </div>
 
           {step === "phone" && (
@@ -253,7 +211,6 @@ export default function Auth() {
                         newOtp[i] = val;
                         setOtp(newOtp.join("").slice(0, 6));
                         setError("");
-                        // Auto-focus next
                         if (val && e.target.nextElementSibling) {
                           (e.target.nextElementSibling as HTMLInputElement).focus();
                         }
@@ -295,40 +252,6 @@ export default function Auth() {
                     </button>
                   )}
                 </div>
-              </form>
-            </>
-          )}
-
-          {step === "username" && (
-            <>
-              <h2 className="text-xl font-bold text-primary-custom mb-1 tracking-tight">Choose Username</h2>
-              <p className="text-[12px] text-secondary-custom mb-7">This will be your display name on Discoverse</p>
-
-              <form onSubmit={handleSetUsername} className="space-y-3">
-                <div className="relative">
-                  <User size={14} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom" />
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => { setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "")); setError(""); }}
-                    placeholder="your_username"
-                    maxLength={20}
-                    className="w-full h-11 bg-secondary border border-border rounded-lg pl-9 pr-4 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30 transition-colors"
-                    autoFocus
-                  />
-                </div>
-
-                {error && <p className="text-[11px] text-destructive">{error}</p>}
-
-                <button
-                  type="submit"
-                  disabled={loading || username.length < 3}
-                  className="w-full h-11 bg-primary text-primary-foreground rounded-lg text-[12px] font-bold hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  ) : "Continue"}
-                </button>
               </form>
             </>
           )}

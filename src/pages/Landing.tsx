@@ -4,8 +4,12 @@ import { Logo } from "@/components/Logo";
 import {
   ArrowRight, Sparkles, Bot, BookOpen, Zap, Brain, Globe,
   ChevronRight, Users, TrendingUp, Award, Check, X, Mail,
-  Shield, FileText, MessageSquare, Menu, Star, Play, Lock, Crown, Cpu, Eye
+  Shield, FileText, MessageSquare, Menu, Star, Play, Lock, Crown, Cpu, Eye,
+  Rocket, Heart, DollarSign, Twitter, Linkedin, Github, Instagram, Youtube,
+  Send, Atom, GraduationCap, Target, Layers, ArrowUpRight,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 /* ── Reveal hook ── */
 function useInView(threshold = 0.15) {
@@ -93,16 +97,33 @@ const FEATURES = [
 ];
 
 const TESTIMONIALS = [
-  { name: "Aarav S.", role: "Student, Nepal", text: "Discoverse agents explain physics like my best friend would. Finally understanding quantum mechanics!", avatar: "A" },
+  { name: "Aarav S.", role: "Student, Nepal", text: "DiscoverSE agents explain physics like my best friend would. Finally understanding quantum mechanics!", avatar: "A" },
   { name: "Priya M.", role: "Creator", text: "Built my own Biology agent in 10 minutes. Already has 200+ users chatting with it daily.", avatar: "P" },
   { name: "Rahul K.", role: "Teacher", text: "The 3D simulations are game-changing. My students actually want to study now.", avatar: "R" },
 ];
 
+const SIMULATIONS = [
+  { name: "Human Heart", subject: "Biology", icon: Heart },
+  { name: "DNA Structure", subject: "Biology", icon: Atom },
+  { name: "Solar System", subject: "Astronomy", icon: Globe },
+  { name: "Atom Model", subject: "Physics", icon: Atom },
+  { name: "Cell Division", subject: "Biology", icon: Layers },
+  { name: "Water Molecule", subject: "Chemistry", icon: Atom },
+];
+
+const SOCIAL_LINKS = [
+  { icon: Twitter, label: "Twitter", href: "https://twitter.com/discoverseai" },
+  { icon: Linkedin, label: "LinkedIn", href: "https://linkedin.com/company/discoverseai" },
+  { icon: Instagram, label: "Instagram", href: "https://instagram.com/discoverseai" },
+  { icon: Youtube, label: "YouTube", href: "https://youtube.com/@discoverseai" },
+  { icon: Github, label: "GitHub", href: "https://github.com/discoverseai" },
+];
+
 const NAV_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "Agents", href: "#agents" },
-  { label: "Compare", href: "#compare" },
-  { label: "Contact", href: "#contact" },
+  { label: "AI Agents", href: "#agents" },
+  { label: "3D Simulations", href: "#simulations" },
+  { label: "Learn Mode", href: "#features" },
+  { label: "Company", href: "#company" },
 ];
 
 export default function Landing() {
@@ -110,6 +131,9 @@ export default function Landing() {
   const [heroVisible, setHeroVisible] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [investForm, setInvestForm] = useState({ name: "", email: "", message: "" });
+  const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { requestAnimationFrame(() => setHeroVisible(true)); }, []);
   useEffect(() => {
@@ -121,6 +145,21 @@ export default function Landing() {
   const scrollTo = (id: string) => {
     setMobileMenu(false);
     document.querySelector(id)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const submitInquiry = async (type: "invest" | "contact", form: { name: string; email: string; message: string }) => {
+    if (!form.name || !form.email) { toast.error("Name and email required"); return; }
+    setSubmitting(true);
+    const { error } = await (supabase as any).from("contact_inquiries").insert({
+      name: form.name, email: form.email, message: form.message || null, type,
+    });
+    if (error) toast.error("Failed to submit");
+    else {
+      toast.success(type === "invest" ? "Thank you for your interest! We'll be in touch." : "Message sent! We'll respond soon.");
+      if (type === "invest") setInvestForm({ name: "", email: "", message: "" });
+      else setContactForm({ name: "", email: "", message: "" });
+    }
+    setSubmitting(false);
   };
 
   return (
@@ -137,7 +176,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto flex items-center justify-between h-14 px-5">
           <div className="flex items-center gap-2">
             <Logo size={22} />
-            <span className="text-[14px] font-bold text-primary-custom tracking-tight">Discoverse</span>
+            <span className="text-[14px] font-bold text-primary-custom tracking-tight">DiscoverSE</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             {NAV_LINKS.map(l => (
@@ -173,25 +212,17 @@ export default function Landing() {
 
       {/* ═══ HERO ═══ */}
       <section className="pt-32 pb-24 px-5 relative overflow-hidden min-h-[90vh] flex items-center">
-        {/* Subtle grid */}
         <div className="absolute inset-0 opacity-[0.03]" style={{
           backgroundImage: "linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)",
           backgroundSize: "80px 80px",
         }} />
-
-        {/* Glow spots */}
         <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/[0.03] rounded-full blur-[150px]" />
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-primary/[0.02] rounded-full blur-[120px]" />
 
         <div className="max-w-4xl mx-auto text-center w-full relative z-10">
-          {/* Badge */}
           <div
             className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-1.5 mb-8"
-            style={{
-              opacity: heroVisible ? 1 : 0,
-              transform: heroVisible ? "translateY(0)" : "translateY(12px)",
-              transition: "all 600ms cubic-bezier(0.16,1,0.3,1) 100ms",
-            }}
+            style={{ opacity: heroVisible ? 1 : 0, transform: heroVisible ? "translateY(0)" : "translateY(12px)", transition: "all 600ms cubic-bezier(0.16,1,0.3,1) 100ms" }}
           >
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[11px] font-medium text-secondary-custom">2,847 learners online now</span>
@@ -199,11 +230,7 @@ export default function Landing() {
 
           <h1
             className="text-[clamp(2.5rem,8vw,5.5rem)] font-black text-primary-custom leading-[0.95] tracking-tighter mb-6"
-            style={{
-              opacity: heroVisible ? 1 : 0,
-              transform: heroVisible ? "translateY(0)" : "translateY(20px)",
-              transition: "all 800ms cubic-bezier(0.16,1,0.3,1) 200ms",
-            }}
+            style={{ opacity: heroVisible ? 1 : 0, transform: heroVisible ? "translateY(0)" : "translateY(20px)", transition: "all 800ms cubic-bezier(0.16,1,0.3,1) 200ms" }}
           >
             The Future of
             <br />
@@ -212,11 +239,7 @@ export default function Landing() {
 
           <p
             className="text-[clamp(0.95rem,2vw,1.2rem)] text-secondary-custom leading-relaxed max-w-xl mx-auto mb-10"
-            style={{
-              opacity: heroVisible ? 1 : 0,
-              transform: heroVisible ? "translateY(0)" : "translateY(14px)",
-              transition: "all 700ms cubic-bezier(0.16,1,0.3,1) 400ms",
-            }}
+            style={{ opacity: heroVisible ? 1 : 0, transform: heroVisible ? "translateY(0)" : "translateY(14px)", transition: "all 700ms cubic-bezier(0.16,1,0.3,1) 400ms" }}
           >
             Creator-built AI agents with real personalities. 3D simulations with voice narration.
             <span className="text-primary-custom font-medium"> Understand anything in seconds.</span>
@@ -224,50 +247,27 @@ export default function Landing() {
 
           <div
             className="flex flex-col sm:flex-row items-center justify-center gap-3"
-            style={{
-              opacity: heroVisible ? 1 : 0,
-              transform: heroVisible ? "translateY(0)" : "translateY(12px)",
-              transition: "all 700ms cubic-bezier(0.16,1,0.3,1) 550ms",
-            }}
+            style={{ opacity: heroVisible ? 1 : 0, transform: heroVisible ? "translateY(0)" : "translateY(12px)", transition: "all 700ms cubic-bezier(0.16,1,0.3,1) 550ms" }}
           >
-            <button
-              onClick={() => navigate("/auth")}
-              className="w-full sm:w-auto bg-primary text-primary-foreground text-[14px] font-bold px-8 py-3.5 rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all flex items-center justify-center gap-2"
-            >
+            <button onClick={() => navigate("/auth")} className="w-full sm:w-auto bg-primary text-primary-foreground text-[14px] font-bold px-8 py-3.5 rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all flex items-center justify-center gap-2">
               Start Learning Free <ArrowRight size={16} />
             </button>
-            <button
-              onClick={() => scrollTo("#agents")}
-              className="w-full sm:w-auto border border-border text-[13px] font-medium text-secondary-custom px-7 py-3.5 rounded-xl hover:bg-secondary hover:text-primary-custom active:scale-[0.97] transition-all"
-            >
-              <span className="flex items-center justify-center gap-2">
-                <Play size={12} /> Watch Demo
-              </span>
+            <button onClick={() => scrollTo("#simulations")} className="w-full sm:w-auto border border-border text-[13px] font-medium text-secondary-custom px-7 py-3.5 rounded-xl hover:bg-secondary hover:text-primary-custom active:scale-[0.97] transition-all">
+              <span className="flex items-center justify-center gap-2"><Play size={12} /> Explore 3D</span>
             </button>
           </div>
 
-          {/* Social proof */}
-          <div
-            className="mt-14 flex items-center gap-4 justify-center"
-            style={{
-              opacity: heroVisible ? 1 : 0,
-              transition: "all 700ms cubic-bezier(0.16,1,0.3,1) 750ms",
-            }}
-          >
+          <div className="mt-14 flex items-center gap-4 justify-center" style={{ opacity: heroVisible ? 1 : 0, transition: "all 700ms cubic-bezier(0.16,1,0.3,1) 750ms" }}>
             <div className="flex -space-x-2">
-              {["R","A","S","M","K"].map((l, i) => (
-                <div key={l} className="w-7 h-7 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold bg-secondary text-secondary-foreground">
-                  {l}
-                </div>
+              {["R","A","S","M","K"].map((l) => (
+                <div key={l} className="w-7 h-7 rounded-full border-2 border-background flex items-center justify-center text-[10px] font-bold bg-secondary text-secondary-foreground">{l}</div>
               ))}
             </div>
             <div className="text-left">
               <div className="flex items-center gap-0.5">
                 {[1,2,3,4,5].map(i => <Star key={i} size={10} fill="currentColor" className="text-primary-custom" />)}
               </div>
-              <p className="text-[10px] text-tertiary-custom mt-0.5">
-                <span className="text-primary-custom font-semibold">4.9/5</span> from 2,847 learners
-              </p>
+              <p className="text-[10px] text-tertiary-custom mt-0.5"><span className="text-primary-custom font-semibold">4.9/5</span> from 2,847 learners</p>
             </div>
           </div>
         </div>
@@ -301,7 +301,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ═══ AGENTS ═══ */}
+      {/* ═══ AI AGENTS ═══ */}
       <section id="agents" className="py-20 px-5">
         <div className="max-w-5xl mx-auto">
           <Reveal className="text-center mb-14">
@@ -322,9 +322,7 @@ export default function Landing() {
                   <h3 className="text-[14px] font-bold text-primary-custom">{agent.name}</h3>
                   <p className="text-[11px] text-tertiary-custom mt-0.5">{agent.role}</p>
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-                    <span className="text-[10px] text-tertiary-custom flex items-center gap-1">
-                      <Users size={10} /> {agent.users}
-                    </span>
+                    <span className="text-[10px] text-tertiary-custom flex items-center gap-1"><Users size={10} /> {agent.users}</span>
                     <span className="text-[11px] text-primary-custom opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center gap-0.5 font-medium">
                       Chat <ChevronRight size={12} />
                     </span>
@@ -335,24 +333,56 @@ export default function Landing() {
           </div>
 
           <Reveal className="mt-10 text-center" delay={500}>
-            <button
-              onClick={() => navigate("/auth")}
-              className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[13px] font-bold px-7 py-3 rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all"
-            >
-              <Sparkles size={14} /> Create Your Own Agent
+            <button onClick={() => navigate("/auth")} className="inline-flex items-center gap-2 bg-primary text-primary-foreground text-[13px] font-bold px-7 py-3 rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all">
+              <Sparkles size={14} /> Explore All Agents
             </button>
           </Reveal>
         </div>
       </section>
 
-      {/* ═══ FEATURES ═══ */}
+      {/* ═══ 3D SIMULATIONS ═══ */}
+      <section id="simulations" className="py-20 px-5 border-t border-border">
+        <div className="max-w-5xl mx-auto">
+          <Reveal className="text-center mb-14">
+            <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.2em] mb-3">Interactive Learning</p>
+            <h2 className="text-[clamp(1.8rem,5vw,2.8rem)] font-black text-primary-custom tracking-tight">
+              3D Simulations that<br />make you go "woah"
+            </h2>
+            <p className="text-[14px] text-secondary-custom mt-4 max-w-lg mx-auto">
+              Explore real 3D models with AI-guided step-by-step narration. Voice support in Hindi & English. If a model isn't in our database, AI generates it procedurally.
+            </p>
+          </Reveal>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {SIMULATIONS.map((sim, i) => (
+              <Reveal key={sim.name} delay={i * 80}>
+                <div className="border border-border rounded-2xl p-5 hover:border-primary/20 transition-all duration-300 group cursor-pointer" onClick={() => navigate("/auth")}>
+                  <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <sim.icon size={20} strokeWidth={1.5} />
+                  </div>
+                  <h3 className="text-[14px] font-bold text-primary-custom">{sim.name}</h3>
+                  <p className="text-[11px] text-tertiary-custom mt-0.5">{sim.subject}</p>
+                  <div className="flex items-center gap-1 mt-3 text-[10px] text-primary-custom opacity-0 group-hover:opacity-100 transition-all font-medium">
+                    Explore in 3D <ArrowUpRight size={10} />
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ FEATURES / LEARN MODE ═══ */}
       <section id="features" className="py-20 px-5">
         <div className="max-w-5xl mx-auto">
           <Reveal className="text-center mb-14">
-            <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.2em] mb-3">Why Discoverse</p>
+            <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.2em] mb-3">Learn Mode</p>
             <h2 className="text-[clamp(1.8rem,5vw,2.8rem)] font-black text-primary-custom tracking-tight">
               Built for instant<br />understanding
             </h2>
+            <p className="text-[14px] text-secondary-custom mt-4 max-w-md mx-auto">
+              Type any topic. Get an interactive 3D simulation with step-by-step AI narration. No textbooks needed.
+            </p>
           </Reveal>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {FEATURES.map((f, i) => (
@@ -371,14 +401,13 @@ export default function Landing() {
       </section>
 
       {/* ═══ COMPARISON ═══ */}
-      <section id="compare" className="py-20 px-5">
+      <section className="py-20 px-5 border-t border-border">
         <div className="max-w-3xl mx-auto">
           <Reveal className="text-center mb-12">
             <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.2em] mb-3">The Difference</p>
             <h2 className="text-[clamp(1.8rem,5vw,2.8rem)] font-black text-primary-custom tracking-tight">
-              Discoverse vs Generic AI
+              DiscoverSE vs Generic AI
             </h2>
-            <p className="text-[13px] text-secondary-custom mt-3">ChatGPT, Gemini, Claude — they're great at text. We're built for <span className="text-primary-custom font-semibold">understanding</span>.</p>
           </Reveal>
 
           <Reveal>
@@ -388,7 +417,7 @@ export default function Landing() {
                 <div className="p-4 text-center">
                   <div className="inline-flex items-center gap-1.5">
                     <Logo size={14} />
-                    <span className="text-[11px] font-bold text-primary-custom">Discoverse</span>
+                    <span className="text-[11px] font-bold text-primary-custom">DiscoverSE</span>
                   </div>
                 </div>
                 <div className="p-4 text-center text-[11px] font-semibold text-tertiary-custom">Others</div>
@@ -398,24 +427,16 @@ export default function Landing() {
                   <div className="p-3 md:p-4 text-[11px] md:text-[12px] text-secondary-custom flex items-center font-medium">{row.feature}</div>
                   <div className="p-3 md:p-4 flex items-center justify-center">
                     {row.us ? (
-                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                        <Check size={12} className="text-primary-foreground" strokeWidth={3} />
-                      </div>
+                      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center"><Check size={12} className="text-primary-foreground" strokeWidth={3} /></div>
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                        <X size={12} className="text-tertiary-custom" />
-                      </div>
+                      <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center"><X size={12} className="text-tertiary-custom" /></div>
                     )}
                   </div>
                   <div className="p-3 md:p-4 flex items-center justify-center">
                     {row.them ? (
-                      <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                        <Check size={12} className="text-tertiary-custom" />
-                      </div>
+                      <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center"><Check size={12} className="text-tertiary-custom" /></div>
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
-                        <X size={12} className="text-tertiary-custom" />
-                      </div>
+                      <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center"><X size={12} className="text-tertiary-custom" /></div>
                     )}
                   </div>
                 </div>
@@ -430,9 +451,7 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto">
           <Reveal className="text-center mb-12">
             <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.2em] mb-3">Loved by Learners</p>
-            <h2 className="text-[clamp(1.8rem,5vw,2.8rem)] font-black text-primary-custom tracking-tight">
-              What our community says
-            </h2>
+            <h2 className="text-[clamp(1.8rem,5vw,2.8rem)] font-black text-primary-custom tracking-tight">What our community says</h2>
           </Reveal>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {TESTIMONIALS.map((t, i) => (
@@ -456,6 +475,118 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ═══ INVEST IN DISCOVERSE ═══ */}
+      <section className="py-20 px-5 border-t border-border">
+        <div className="max-w-4xl mx-auto">
+          <Reveal className="text-center mb-14">
+            <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.2em] mb-3">Invest in the Future</p>
+            <h2 className="text-[clamp(1.8rem,5vw,2.8rem)] font-black text-primary-custom tracking-tight">
+              Join the DiscoverSE<br />journey
+            </h2>
+            <p className="text-[14px] text-secondary-custom mt-4 max-w-lg mx-auto">
+              We're building the future of AI-powered education. Interested in investing or partnering? Let's talk.
+            </p>
+          </Reveal>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <Reveal>
+              <div className="border border-border rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign size={18} className="text-primary-custom" />
+                  <h3 className="text-[16px] font-bold text-primary-custom">Investor Interest</h3>
+                </div>
+                <input value={investForm.name} onChange={e => setInvestForm({...investForm, name: e.target.value})}
+                  placeholder="Your name" className="w-full bg-secondary border border-border rounded-lg h-10 px-3 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30" />
+                <input value={investForm.email} onChange={e => setInvestForm({...investForm, email: e.target.value})}
+                  placeholder="Email address" className="w-full bg-secondary border border-border rounded-lg h-10 px-3 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30" />
+                <textarea value={investForm.message} onChange={e => setInvestForm({...investForm, message: e.target.value})}
+                  placeholder="Tell us about your interest..." rows={3} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30 resize-none" />
+                <button onClick={() => submitInquiry("invest", investForm)} disabled={submitting}
+                  className="w-full bg-primary text-primary-foreground h-10 rounded-lg text-[12px] font-bold hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2">
+                  <Rocket size={14} /> Submit Interest
+                </button>
+              </div>
+            </Reveal>
+
+            <Reveal delay={150}>
+              <div className="space-y-4">
+                {[
+                  { icon: Target, title: "Our Mission", desc: "Making quality education accessible to every student in South Asia through AI and 3D technology." },
+                  { icon: TrendingUp, title: "Traction", desc: "2,800+ active learners, 14,500+ simulations run, growing 40% month-over-month." },
+                  { icon: GraduationCap, title: "Market", desc: "500M+ students in South Asia. $100B+ EdTech market. We're just getting started." },
+                ].map((item, i) => (
+                  <div key={item.title} className="border border-border rounded-2xl p-5 hover:border-primary/20 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                        <item.icon size={18} className="text-primary-custom" />
+                      </div>
+                      <div>
+                        <h4 className="text-[13px] font-bold text-primary-custom">{item.title}</h4>
+                        <p className="text-[11px] text-secondary-custom mt-0.5">{item.desc}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ COMPANY / ABOUT ═══ */}
+      <section id="company" className="py-20 px-5 border-t border-border">
+        <div className="max-w-5xl mx-auto">
+          <Reveal className="text-center mb-14">
+            <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.2em] mb-3">Company</p>
+            <h2 className="text-[clamp(1.8rem,5vw,2.8rem)] font-black text-primary-custom tracking-tight">
+              Built by Iscilla Technologies
+            </h2>
+            <p className="text-[14px] text-secondary-custom mt-4 max-w-lg mx-auto">
+              A Nepal-based AI startup on a mission to democratize education through cutting-edge technology.
+            </p>
+          </Reveal>
+
+          <div className="grid md:grid-cols-3 gap-3 mb-12">
+            {[
+              { icon: Globe, title: "Nepal-First", desc: "Built for South Asian students. Nepali language support, local context, relatable content." },
+              { icon: Shield, title: "Privacy-Focused", desc: "No data selling, no tracking. Your learning journey is yours alone." },
+              { icon: Cpu, title: "AI-Native", desc: "Every feature is powered by AI. From 3D generation to personalized learning paths." },
+            ].map((item, i) => (
+              <Reveal key={item.title} delay={i * 100}>
+                <div className="border border-border rounded-2xl p-6 hover:border-primary/20 transition-colors text-center">
+                  <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center mx-auto mb-4">
+                    <item.icon size={20} className="text-primary-custom" />
+                  </div>
+                  <h3 className="text-[14px] font-bold text-primary-custom mb-2">{item.title}</h3>
+                  <p className="text-[12px] text-secondary-custom leading-relaxed">{item.desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          {/* Contact form */}
+          <Reveal>
+            <div className="max-w-lg mx-auto border border-border rounded-2xl p-6">
+              <h3 className="text-[16px] font-bold text-primary-custom mb-4 flex items-center gap-2">
+                <Mail size={18} /> Contact Us
+              </h3>
+              <div className="space-y-3">
+                <input value={contactForm.name} onChange={e => setContactForm({...contactForm, name: e.target.value})}
+                  placeholder="Your name" className="w-full bg-secondary border border-border rounded-lg h-10 px-3 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30" />
+                <input value={contactForm.email} onChange={e => setContactForm({...contactForm, email: e.target.value})}
+                  placeholder="Email address" className="w-full bg-secondary border border-border rounded-lg h-10 px-3 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30" />
+                <textarea value={contactForm.message} onChange={e => setContactForm({...contactForm, message: e.target.value})}
+                  placeholder="Your message..." rows={4} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30 resize-none" />
+                <button onClick={() => submitInquiry("contact", contactForm)} disabled={submitting}
+                  className="w-full bg-primary text-primary-foreground h-10 rounded-lg text-[12px] font-bold hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2">
+                  <Send size={14} /> Send Message
+                </button>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ═══ CTA ═══ */}
       <section className="py-24 px-5 relative">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/[0.02] rounded-full blur-[150px]" />
@@ -468,37 +599,34 @@ export default function Landing() {
           <p className="text-[14px] text-secondary-custom mb-10 leading-relaxed max-w-md mx-auto">
             Join thousands of students using specialized AI agents to understand complex topics instantly.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              onClick={() => navigate("/auth")}
-              className="w-full sm:w-auto bg-primary text-primary-foreground text-[14px] font-bold px-10 py-4 rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all"
-            >
-              Get Started Free
-            </button>
-            <button
-              onClick={() => navigate("/auth")}
-              className="w-full sm:w-auto border border-border text-[13px] font-medium text-secondary-custom px-8 py-4 rounded-xl hover:bg-secondary hover:text-primary-custom active:scale-[0.97] transition-all"
-            >
-              Create an Agent
-            </button>
-          </div>
-          <p className="text-[10px] text-tertiary-custom mt-5 uppercase tracking-widest">No credit card required · 5 free generations/week</p>
+          <button onClick={() => navigate("/auth")} className="bg-primary text-primary-foreground text-[14px] font-bold px-10 py-4 rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all">
+            Get Started Free
+          </button>
+          <p className="text-[10px] text-tertiary-custom mt-5 uppercase tracking-widest">No credit card required · 3 free generations/day</p>
         </Reveal>
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer id="contact" className="border-t border-border">
+      <footer className="border-t border-border">
         <div className="max-w-6xl mx-auto px-5 py-14">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-            <div className="col-span-2 md:col-span-1">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+            <div className="col-span-2">
               <div className="flex items-center gap-2 mb-3">
                 <Logo size={20} />
-                <span className="text-[14px] font-bold text-primary-custom">Discoverse</span>
+                <span className="text-[14px] font-bold text-primary-custom">DiscoverSE AI</span>
               </div>
-              <p className="text-[11px] text-tertiary-custom leading-relaxed mb-3">
-                AI-powered learning platform with specialized agents and 3D simulations.
+              <p className="text-[11px] text-tertiary-custom leading-relaxed mb-4">
+                AI-powered learning platform with specialized agents and 3D simulations. Built for students, by students.
               </p>
-              <p className="text-[10px] text-tertiary-custom font-mono">discoverseai.com</p>
+              <div className="flex gap-2">
+                {SOCIAL_LINKS.map(s => (
+                  <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
+                    className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors" title={s.label}>
+                    <s.icon size={14} />
+                  </a>
+                ))}
+              </div>
+              <p className="text-[10px] text-tertiary-custom font-mono mt-3">discoverseai.com</p>
             </div>
             <div>
               <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.15em] mb-4">Product</p>
@@ -511,7 +639,8 @@ export default function Landing() {
             <div>
               <p className="text-[10px] font-bold text-tertiary-custom uppercase tracking-[0.15em] mb-4">Company</p>
               <div className="space-y-2.5">
-                <a href="mailto:iscillatechnologies@gmail.com" className="block text-[12px] text-secondary-custom hover:text-primary-custom transition-colors">Contact Us</a>
+                <button onClick={() => scrollTo("#company")} className="block text-[12px] text-secondary-custom hover:text-primary-custom transition-colors">About Us</button>
+                <a href="mailto:iscillatechnologies@gmail.com" className="block text-[12px] text-secondary-custom hover:text-primary-custom transition-colors">Contact</a>
                 <a href="mailto:iscillatechnologies@gmail.com?subject=Affiliate%20Partnership" className="block text-[12px] text-secondary-custom hover:text-primary-custom transition-colors">Become Affiliate</a>
                 <a href="mailto:iscillatechnologies@gmail.com?subject=Partnership" className="block text-[12px] text-secondary-custom hover:text-primary-custom transition-colors">Partner With Us</a>
               </div>
@@ -526,12 +655,14 @@ export default function Landing() {
           </div>
           <div className="border-t border-border pt-6 flex flex-col md:flex-row items-center justify-between gap-3">
             <p className="text-[11px] text-tertiary-custom">
-              © {new Date().getFullYear()} Discoverse AI · Iscilla Technologies
+              © {new Date().getFullYear()} DiscoverSE AI · Iscilla Technologies Pvt. Ltd.
             </p>
             <div className="flex gap-5">
-              <a href="mailto:iscillatechnologies@gmail.com" className="text-[11px] text-tertiary-custom hover:text-primary-custom transition-colors flex items-center gap-1.5">
-                <Mail size={12} /> Email
-              </a>
+              {SOCIAL_LINKS.slice(0, 3).map(s => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" className="text-[11px] text-tertiary-custom hover:text-primary-custom transition-colors flex items-center gap-1.5">
+                  <s.icon size={12} /> {s.label}
+                </a>
+              ))}
             </div>
           </div>
         </div>

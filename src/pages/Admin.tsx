@@ -3,17 +3,21 @@ import { MainLayout } from "@/components/MainLayout";
 import {
   Database, Upload, BarChart3, Layers, Plus, X, CloudUpload, Check,
   AlertTriangle, Bot, Sparkles, Eye, EyeOff, Save, Trash2, ChevronRight,
+  Users, Shield, Search, ToggleLeft, ToggleRight, Mail, MessageSquare,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const adminNav = [
   { icon: Database, label: "Models", path: "/wedisni" },
   { icon: Bot, label: "AI Agents", path: "/wedisni/agents" },
+  { icon: Users, label: "Users", path: "/wedisni/users" },
   { icon: Upload, label: "Upload", path: "/wedisni/upload" },
   { icon: BarChart3, label: "Analytics", path: "/wedisni/analytics" },
   { icon: Layers, label: "Cache", path: "/wedisni/cache" },
+  { icon: MessageSquare, label: "Inquiries", path: "/wedisni/inquiries" },
 ];
 
 const subjectColors: Record<string, string> = {
@@ -68,12 +72,15 @@ export default function Admin() {
     );
   }
 
-  const currentView = location.pathname.includes("/agents") ? "agents" : location.pathname.includes("/upload") ? "upload" : "models";
+  const currentView = location.pathname.includes("/agents") ? "agents"
+    : location.pathname.includes("/users") ? "users"
+    : location.pathname.includes("/upload") ? "upload"
+    : location.pathname.includes("/inquiries") ? "inquiries"
+    : "models";
 
   return (
     <MainLayout title="Admin Panel">
       <div className="flex h-full">
-        {/* Sidebar nav - hidden on mobile, shown as top tabs on mobile */}
         <div className="hidden md:block w-44 bg-background-secondary border-r border-border p-2.5 space-y-0.5 shrink-0">
           <p className="label-text text-tertiary-custom px-3 py-2">Admin</p>
           {adminNav.map((item) => (
@@ -90,7 +97,6 @@ export default function Admin() {
           ))}
         </div>
 
-        {/* Mobile top tabs */}
         <div className="md:hidden absolute top-0 left-0 right-0 z-10 bg-card border-b border-border flex overflow-x-auto px-2 py-1.5 gap-1">
           {adminNav.map((item) => (
             <button
@@ -107,10 +113,195 @@ export default function Admin() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-12 md:pt-8 pb-20 md:pb-8">
-          {currentView === "agents" ? <AgentsView /> : currentView === "upload" ? <UploadView /> : <ModelsTable />}
+          {currentView === "agents" ? <AgentsView /> 
+            : currentView === "users" ? <UsersView />
+            : currentView === "upload" ? <UploadView />
+            : currentView === "inquiries" ? <InquiriesView />
+            : <ModelsTable />}
         </div>
       </div>
     </MainLayout>
+  );
+}
+
+// ── USERS MANAGEMENT VIEW ──
+function UsersView() {
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [toggling, setToggling] = useState<string | null>(null);
+
+  useEffect(() => { loadProfiles(); }, []);
+
+  const loadProfiles = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setProfiles(data || []);
+    setLoading(false);
+  };
+
+  const toggleAgentCreation = async (userId: string, current: boolean) => {
+    setToggling(userId);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ can_create_agent: !current })
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Failed to update");
+    } else {
+      toast.success(!current ? "Agent creation enabled" : "Agent creation revoked");
+      loadProfiles();
+    }
+    setToggling(null);
+  };
+
+  const filtered = profiles.filter(p => {
+    const q = search.toLowerCase();
+    return !q || (p.username || "").toLowerCase().includes(q) ||
+      (p.display_name || "").toLowerCase().includes(q) ||
+      (p.user_id || "").toLowerCase().includes(q);
+  });
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h1 className="text-[20px] font-semibold text-primary-custom">User Management</h1>
+          <p className="text-[12px] text-tertiary-custom mt-0.5">{profiles.length} registered users</p>
+        </div>
+      </div>
+
+      <div className="relative mb-4">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by username or display name..."
+          className="w-full bg-card border border-border rounded-xl h-10 pl-9 pr-3 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent transition-colors"
+        />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-background-secondary">
+                  {["User", "Username", "Joined", "Agent Creator", "Actions"].map((h) => (
+                    <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr key={p.id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
+                    <td className="px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt="" className="w-full h-full rounded-lg object-cover" />
+                          ) : (
+                            <Users size={12} className="text-tertiary-custom" />
+                          )}
+                        </div>
+                        <span className="text-[13px] font-medium text-primary-custom">{p.display_name || "—"}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 text-[12px] text-secondary-custom font-mono">@{p.username || "—"}</td>
+                    <td className="px-4 text-[11px] text-tertiary-custom">{new Date(p.created_at).toLocaleDateString()}</td>
+                    <td className="px-4">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                        p.can_create_agent ? "bg-secondary text-primary-custom" : "bg-secondary text-tertiary-custom"
+                      }`}>
+                        {p.can_create_agent ? "Yes" : "No"}
+                      </span>
+                    </td>
+                    <td className="px-4">
+                      <button
+                        onClick={() => toggleAgentCreation(p.user_id, p.can_create_agent || false)}
+                        disabled={toggling === p.user_id}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all press ${
+                          p.can_create_agent
+                            ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                            : "bg-secondary text-primary-custom hover:bg-secondary/80"
+                        }`}
+                      >
+                        {p.can_create_agent ? (
+                          <><ToggleRight size={12} /> Revoke</>
+                        ) : (
+                          <><ToggleLeft size={12} /> Grant</>
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── INQUIRIES VIEW ──
+function InquiriesView() {
+  const [inquiries, setInquiries] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { loadInquiries(); }, []);
+
+  const loadInquiries = async () => {
+    const { data } = await (supabase as any)
+      .from("contact_inquiries")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setInquiries(data || []);
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <div className="mb-5">
+        <h1 className="text-[20px] font-semibold text-primary-custom">Inquiries & Investor Interest</h1>
+        <p className="text-[12px] text-tertiary-custom mt-0.5">{inquiries.length} submissions</p>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" />
+        </div>
+      ) : inquiries.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 border border-border rounded-xl bg-card">
+          <Mail size={32} strokeWidth={1} className="text-border mb-3" />
+          <p className="text-[14px] text-secondary-custom">No inquiries yet</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {inquiries.map((inq) => (
+            <div key={inq.id} className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                  inq.type === "invest" ? "bg-secondary text-primary-custom" : "bg-secondary text-tertiary-custom"
+                }`}>
+                  {inq.type}
+                </span>
+                <span className="text-[10px] text-tertiary-custom">{new Date(inq.created_at).toLocaleString()}</span>
+              </div>
+              <p className="text-[13px] font-semibold text-primary-custom">{inq.name}</p>
+              <p className="text-[11px] text-secondary-custom">{inq.email}</p>
+              {inq.message && <p className="text-[12px] text-secondary-custom mt-2 border-t border-border pt-2">{inq.message}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -290,7 +481,6 @@ function AgentEditor({ agent, onSave, onCancel }: { agent: any; onSave: (a: any)
             className="w-full bg-card border border-border rounded-xl px-3 py-2.5 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent transition-colors resize-none"
             placeholder="Define the agent's behavior, tone, and expertise..."
           />
-          <p className="text-[10px] text-tertiary-custom mt-1">This is the core personality. Make it specific and warm.</p>
         </div>
 
         <div>
@@ -317,7 +507,6 @@ function AgentEditor({ agent, onSave, onCancel }: { agent: any; onSave: (a: any)
           </select>
         </div>
 
-        {/* Knowledge areas */}
         <div>
           <label className="text-[12px] font-medium text-primary-custom block mb-1">Knowledge Areas</label>
           <div className="flex gap-1.5 flex-wrap mb-2">
@@ -335,14 +524,13 @@ function AgentEditor({ agent, onSave, onCancel }: { agent: any; onSave: (a: any)
               value={knowledgeInput}
               onChange={(e) => setKnowledgeInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKnowledge())}
-              placeholder="e.g. Biology, Physics, NCERT Class 10..."
+              placeholder="e.g. Biology, Physics..."
               className="flex-1 bg-card border border-border rounded-xl h-9 px-3 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent"
             />
             <button onClick={addKnowledge} className="px-3 bg-background-secondary rounded-xl text-[12px] text-secondary-custom hover:text-primary-custom">Add</button>
           </div>
         </div>
 
-        {/* Research papers */}
         <div>
           <label className="text-[12px] font-medium text-primary-custom block mb-1">Research Papers / References</label>
           <div className="space-y-1 mb-2">
@@ -367,7 +555,7 @@ function AgentEditor({ agent, onSave, onCancel }: { agent: any; onSave: (a: any)
           </div>
         </div>
 
-        <Field label="ElevenLabs Voice ID" value={form.voice_id || ""} onChange={(v) => update("voice_id", v)} placeholder="EXAVITQu4vr4xnSDxMaL" helper="Sarah (warm female) is default. Find more at ElevenLabs Voice Library." />
+        <Field label="ElevenLabs Voice ID" value={form.voice_id || ""} onChange={(v) => update("voice_id", v)} placeholder="EXAVITQu4vr4xnSDxMaL" helper="Sarah (warm female) is default." />
 
         <div className="flex gap-2.5 pt-3">
           <button
@@ -390,7 +578,7 @@ function AgentEditor({ agent, onSave, onCancel }: { agent: any; onSave: (a: any)
   );
 }
 
-// ── MODELS TABLE (unchanged) ──
+// ── MODELS TABLE ──
 function ModelsTable() {
   const [models, setModels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -456,7 +644,7 @@ function ModelsTable() {
   );
 }
 
-// ── UPLOAD VIEW (unchanged) ──
+// ── UPLOAD VIEW ──
 function UploadView() {
   const { user } = useAuth();
   const navigate = useNavigate();

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/MainLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Mail, Link2, Copy, Check, LogOut, Shield, Save, Bot, Trash2, Edit3, ExternalLink, Share2 } from "lucide-react";
+import { User, Link2, Copy, Check, LogOut, Shield, Save, Bot, Trash2, Edit3, ExternalLink, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { shareUrl } from "@/lib/constants";
@@ -38,7 +38,7 @@ export default function Profile() {
       setForm({ display_name: data.display_name || "", username: data.username || "", bio: data.bio || "" });
     } else {
       setForm({
-        display_name: user!.user_metadata?.full_name || user!.email?.split("@")[0] || "",
+        display_name: "",
         username: "",
         bio: ""
       });
@@ -120,8 +120,7 @@ export default function Profile() {
     );
   }
 
-  const avatarUrl = user?.user_metadata?.avatar_url;
-  const displayName = form.display_name || user?.email?.split("@")[0] || "Explorer";
+  const displayName = form.display_name || form.username || "Explorer";
   const activeAgents = myAgents.filter(a => a.is_published);
   const draftAgents = myAgents.filter(a => !a.is_published);
   const shownAgents = agentTab === "active" ? activeAgents : draftAgents;
@@ -129,20 +128,18 @@ export default function Profile() {
   return (
     <MainLayout title="Profile">
       <div className="p-5 md:p-8 overflow-y-auto h-full pb-20 md:pb-8 max-w-xl mx-auto">
-        {/* Avatar & header */}
+        {/* Avatar & header — no phone number shown */}
         <div className="flex flex-col items-center text-center mb-8 animate-slide-up">
-          {avatarUrl ? (
-            <img src={avatarUrl} className="w-20 h-20 rounded-2xl object-cover ring-2 ring-border mb-4 hover-lift" alt="" />
-          ) : (
-            <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mb-4 ring-2 ring-border hover-lift">
-              <User size={32} strokeWidth={1} className="text-tertiary-custom" />
-            </div>
-          )}
+          <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mb-4 ring-2 ring-border hover-lift">
+            <User size={32} strokeWidth={1} className="text-tertiary-custom" />
+          </div>
           <h1 className="text-xl font-bold text-primary-custom tracking-tight">{displayName}</h1>
-          <p className="text-[11px] text-tertiary-custom mt-0.5 font-mono">{user?.email}</p>
+          {form.username && (
+            <p className="text-[11px] text-tertiary-custom mt-0.5 font-mono">@{form.username}</p>
+          )}
           <div className="flex gap-2 mt-3">
             {isAdmin && (
-              <button onClick={() => navigate("/admin")}
+              <button onClick={() => navigate("/wedisni")}
                 className="inline-flex items-center gap-1.5 text-[10px] bg-secondary text-primary-custom px-3 py-1.5 rounded-lg font-semibold hover-glow border border-border press uppercase tracking-wider">
                 <Shield size={10} /> Admin
               </button>
@@ -292,15 +289,8 @@ export default function Profile() {
           </button>
         </div>
 
-        {/* Account info */}
+        {/* Account info — no phone/email shown */}
         <div className="border-t border-border pt-4 space-y-2.5">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center"><Mail size={12} className="text-tertiary-custom" /></div>
-            <div>
-              <p className="text-[9px] text-tertiary-custom uppercase tracking-widest font-medium">Email</p>
-              <p className="text-[12px] text-primary-custom font-mono">{user?.email}</p>
-            </div>
-          </div>
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center"><User size={12} className="text-tertiary-custom" /></div>
             <div>
