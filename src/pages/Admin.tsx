@@ -258,7 +258,7 @@ function InquiriesView() {
   useEffect(() => { loadInquiries(); }, []);
 
   const loadInquiries = async () => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("contact_inquiries")
       .select("*")
       .order("created_at", { ascending: false });
