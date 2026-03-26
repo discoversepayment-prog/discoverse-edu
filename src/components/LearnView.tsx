@@ -221,7 +221,9 @@ export function LearnView() {
   };
 
   const handleAutoPlay = () => {
-    if (isAutoPlaying) { setIsAutoPlaying(false); stopTTS(); } else { setIsAutoPlaying(true); }
+    if (isAutoPlaying) { setIsAutoPlaying(false); stopTTS(); }
+    else if (isSpeaking) { stopTTS(); }
+    else { setIsAutoPlaying(true); }
   };
 
   const handleGenerate = async (topic?: string, resumeStep?: number) => {
