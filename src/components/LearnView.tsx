@@ -212,13 +212,6 @@ export function LearnView() {
     if (!isAutoPlaying) lastNarratedStep.current = -1;
   }, [isAutoPlaying]);
 
-  const handlePlayNarration = () => {
-    if (isSpeaking) { stopTTS(); return; }
-    if (step) {
-      const text = language === "en" ? step.narration_en : step.narration_hi;
-      speak(text, language);
-    }
-  };
 
   const handleAutoPlay = () => {
     if (isAutoPlaying) { setIsAutoPlaying(false); stopTTS(); }
