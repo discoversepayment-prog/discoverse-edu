@@ -176,27 +176,41 @@ export function LearnView() {
     }
   }, [isLoading]);
 
-  // Auto-play logic
+  // Track which step we last started narrating to prevent re-triggering
+  const lastNarratedStep = useRef<number>(-1);
+
+  // Auto-play logic: narrate current step, wait for speech to finish, then advance
   useEffect(() => {
     if (!isAutoPlaying || !simulation) return;
     
-    if (!isMuted && step) {
+    // Start narration for current step (only once per step)
+    if (!isMuted && step && lastNarratedStep.current !== currentStep) {
+      lastNarratedStep.current = currentStep;
       const text = language === "en" ? step.narration_en : step.narration_hi;
       speak(text, language);
+      return; // Wait for speech to finish
     }
     
+    // If speaking, wait for it to finish before advancing
     if (isSpeaking) return;
     
+    // Speech finished (or muted), wait a moment then advance
     autoPlayRef.current = setTimeout(() => {
       if (currentStep < simulation.steps.length - 1) {
         setCurrentStep((prev) => prev + 1);
       } else {
         setIsAutoPlaying(false);
+        lastNarratedStep.current = -1;
       }
-    }, isMuted ? 5000 : 2000);
+    }, isMuted ? 5000 : 1500);
     
     return () => { if (autoPlayRef.current) clearTimeout(autoPlayRef.current); };
   }, [isAutoPlaying, currentStep, simulation, isMuted, language, step, speak, isSpeaking]);
+
+  // Reset narration tracking when auto-play stops
+  useEffect(() => {
+    if (!isAutoPlaying) lastNarratedStep.current = -1;
+  }, [isAutoPlaying]);
 
   const handlePlayNarration = () => {
     if (isSpeaking) { stopTTS(); return; }
@@ -514,7 +528,7 @@ export function LearnView() {
           )}
 
           <div className="px-3 py-2 flex items-center justify-between shrink-0 border-t border-border">
-            <div className="flex rounded-md overflow-hidden border border-border h-6">
+          <div className="flex rounded-md overflow-hidden border border-border h-6">
               {(["en", "hi"] as const).map((l) => (
                 <button
                   key={l}
@@ -523,7 +537,7 @@ export function LearnView() {
                     language === l ? "bg-primary text-primary-foreground" : "text-tertiary-custom hover:bg-secondary"
                   }`}
                 >
-                  {l === "en" ? "EN" : "ने"}
+                  {l === "en" ? "EN" : "हिं"}
                 </button>
               ))}
             </div>
@@ -532,13 +546,9 @@ export function LearnView() {
               <button onClick={() => goStep(-1)} disabled={currentStep === 0} className="w-7 h-7 rounded-md border border-border flex items-center justify-center disabled:opacity-20 press">
                 <ChevronLeft size={12} strokeWidth={1.5} className="text-tertiary-custom" />
               </button>
-              <button onClick={handlePlayNarration}
-                className="w-7 h-7 rounded-md bg-card border border-border flex items-center justify-center press">
-                {isSpeaking ? <Square size={8} className="text-primary-custom" /> : <Volume2 size={11} className="text-tertiary-custom" />}
-              </button>
               <button onClick={handleAutoPlay}
                 className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/90 press transition-all">
-                {isAutoPlaying ? <Pause size={12} className="text-primary-foreground" /> : <Play size={12} className="text-primary-foreground ml-0.5" />}
+                {isAutoPlaying ? <Pause size={12} className="text-primary-foreground" /> : isSpeaking ? <Square size={10} className="text-primary-foreground" /> : <Play size={12} className="text-primary-foreground ml-0.5" />}
               </button>
               <button onClick={() => goStep(1)} disabled={currentStep === (simulation?.steps.length ?? 0) - 1} className="w-7 h-7 rounded-md border border-border flex items-center justify-center disabled:opacity-20 press">
                 <ChevronRight size={12} strokeWidth={1.5} className="text-tertiary-custom" />
