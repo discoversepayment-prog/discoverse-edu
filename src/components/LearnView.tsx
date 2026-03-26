@@ -379,7 +379,7 @@ export function LearnView() {
         </div>
         <button
           onClick={() => handleGenerate()}
-          disabled={isLoading || !topicInput.trim() || remaining <= 0}
+          disabled={isLoading || !topicInput.trim()}
           className="bg-primary text-primary-foreground px-4 rounded-lg text-[11px] font-bold hover:bg-primary/90 transition-all press disabled:opacity-40 flex items-center gap-1.5 shrink-0"
         >
           {isLoading ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
