@@ -93,10 +93,41 @@ export function ChatView() {
     toast.success("Agent link copied!");
   };
 
-  const filteredAgents = agents.filter(a =>
-    a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (a.knowledge_areas || []).some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Personalized agent sorting: agents user has chatted with recently first, then by popularity
+  const [agentUsage, setAgentUsage] = useState<Record<string, number>>({});
+  
+  useEffect(() => {
+    if (!user) return;
+    const loadUsage = async () => {
+      const { data } = await supabase
+        .from("conversation_history")
+        .select("agent_id, updated_at")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false });
+      if (data) {
+        const usage: Record<string, number> = {};
+        data.forEach((c, i) => {
+          if (!usage[c.agent_id]) usage[c.agent_id] = data.length - i;
+        });
+        setAgentUsage(usage);
+      }
+    };
+    loadUsage();
+  }, [user, agents]);
+
+  const sortedAgents = [...agents]
+    .filter(a =>
+      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.knowledge_areas || []).some(k => k.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
+    .sort((a, b) => {
+      const aScore = agentUsage[a.id] || 0;
+      const bScore = agentUsage[b.id] || 0;
+      if (aScore !== bScore) return bScore - aScore; // Previously used first
+      return 0;
+    });
+
+  const filteredAgents = sortedAgents;
 
   // ── Agent Grid View ──
   if (showAgentList && !selectedAgent) {
