@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import {
   Sparkles, ChevronLeft, ChevronRight, Play, Pause, Square,
   Volume2, VolumeX, Share2, RotateCcw, Atom, Loader2, Wand2,
-  Eye, Crown,
+  Eye, Crown, Box,
 } from "lucide-react";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { ModelViewer } from "./ModelViewer";
@@ -98,15 +98,18 @@ const normalizeSimulationData = (rawSimulation: unknown, availableParts: string[
   };
 };
 
-const LOADING_MESSAGES = [
-  "Scanning knowledge base...",
-  "AI is thinking deeply...",
-  "Generating simulation steps...",
-  "Preparing 3D visualization...",
-  "Almost ready, finalizing...",
+const MESHY_LOADING_MESSAGES = [
+  "🧊 Creating 3D preview mesh...",
+  "🎨 AI is sculpting your model...",
+  "✨ Generating geometry...",
+  "🔧 Refining with HD textures...",
+  "🎭 Applying materials & details...",
+  "📦 Packaging your 3D model...",
+  "🚀 Almost there, finalizing...",
 ];
 
 const MAX_FREE_GENERATIONS = 3;
+const POLL_INTERVAL = 4000;
 
 export function LearnView() {
   const { user } = useAuth();
@@ -123,11 +126,13 @@ export function LearnView() {
   const [isMuted, setIsMuted] = useState(false);
   const [showPanel, setShowPanel] = useState(true);
   const [todayCount, setTodayCount] = useState(0);
+  const [meshyStage, setMeshyStage] = useState<string>("");
   const { language, setLanguage } = useApp();
   const { speak, stop: stopTTS, isSpeaking } = useTTS();
   const autoPlayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadingMsgRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeHandled = useRef(false);
+  const abortRef = useRef(false);
 
   const step = simulation?.steps[currentStep];
   const resolvedHighlightPart = step ? resolvePartName(step.part, modelParts) || undefined : undefined;
@@ -147,13 +152,10 @@ export function LearnView() {
   useEffect(() => {
     if (!user) return;
     const loadCount = async () => {
-      // Reset at 6 AM instead of midnight
       const now = new Date();
       const resetTime = new Date();
       resetTime.setHours(6, 0, 0, 0);
-      if (now.getHours() < 6) {
-        resetTime.setDate(resetTime.getDate() - 1);
-      }
+      if (now.getHours() < 6) resetTime.setDate(resetTime.getDate() - 1);
       const { count } = await supabase
         .from("user_library")
         .select("*", { count: "exact", head: true })
@@ -168,33 +170,27 @@ export function LearnView() {
   useEffect(() => {
     if (isLoading) {
       let idx = 0;
+      setLoadingMsg(MESHY_LOADING_MESSAGES[0]);
       loadingMsgRef.current = setInterval(() => {
-        idx = (idx + 1) % LOADING_MESSAGES.length;
-        setLoadingMsg(LOADING_MESSAGES[idx]);
-      }, 2500);
+        idx = (idx + 1) % MESHY_LOADING_MESSAGES.length;
+        setLoadingMsg(MESHY_LOADING_MESSAGES[idx]);
+      }, 3000);
       return () => { if (loadingMsgRef.current) clearInterval(loadingMsgRef.current); };
     }
   }, [isLoading]);
 
-  // Track which step we last started narrating to prevent re-triggering
   const lastNarratedStep = useRef<number>(-1);
 
-  // Auto-play logic: narrate current step, wait for speech to finish, then advance
+  // Auto-play logic
   useEffect(() => {
     if (!isAutoPlaying || !simulation) return;
-    
-    // Start narration for current step (only once per step)
     if (!isMuted && step && lastNarratedStep.current !== currentStep) {
       lastNarratedStep.current = currentStep;
       const text = language === "en" ? step.narration_en : step.narration_hi;
       speak(text, language);
-      return; // Wait for speech to finish
+      return;
     }
-    
-    // If speaking, wait for it to finish before advancing
     if (isSpeaking) return;
-    
-    // Speech finished (or muted), wait a moment then advance
     autoPlayRef.current = setTimeout(() => {
       if (currentStep < simulation.steps.length - 1) {
         setCurrentStep((prev) => prev + 1);
@@ -203,15 +199,12 @@ export function LearnView() {
         lastNarratedStep.current = -1;
       }
     }, isMuted ? 5000 : 1500);
-    
     return () => { if (autoPlayRef.current) clearTimeout(autoPlayRef.current); };
   }, [isAutoPlaying, currentStep, simulation, isMuted, language, step, speak, isSpeaking]);
 
-  // Reset narration tracking when auto-play stops
   useEffect(() => {
     if (!isAutoPlaying) lastNarratedStep.current = -1;
   }, [isAutoPlaying]);
-
 
   const handleAutoPlay = () => {
     if (isAutoPlaying) { setIsAutoPlaying(false); stopTTS(); }
@@ -219,128 +212,185 @@ export function LearnView() {
     else { setIsAutoPlaying(true); }
   };
 
+  // Poll Meshy task status until SUCCEEDED or FAILED
+  const pollMeshyTask = async (taskId: string): Promise<{ status: string; model_urls?: { glb?: string } }> => {
+    while (!abortRef.current) {
+      const { data, error } = await supabase.functions.invoke("meshy-3d", {
+        body: { action: "check_status", task_id: taskId },
+      });
+      if (error) throw error;
+      if (data.status === "SUCCEEDED") return data;
+      if (data.status === "FAILED" || data.status === "EXPIRED") throw new Error(`Meshy task ${data.status}`);
+      // Update progress
+      setLoadingProgress((prev) => Math.min(prev + 2, 90));
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+    }
+    throw new Error("Generation cancelled");
+  };
+
   const handleGenerate = async (topic?: string, resumeStep?: number) => {
     const t = topic || topicInput;
     if (!t.trim()) return;
     setTopicInput(t);
+    abortRef.current = false;
     setIsLoading(true);
     setSimulation(null);
     setModelParts([]);
-    setLoadingProgress(10);
-    setLoadingMsg(LOADING_MESSAGES[0]);
+    setLoadingProgress(5);
     setShowPanel(true);
 
-    // Fuzzy search
-    const slug = t.toLowerCase().replace(/\s+/g, "_");
-    const searchTerm = t.toLowerCase().trim();
-    const words = searchTerm.split(/\s+/).filter(Boolean);
+    const slug = t.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
-    let model: any = null;
-
-    // 1. Exact slug match
-    const { data: exactMatch } = await supabase
+    // 1. Check if model already exists in DB
+    const { data: existingModel } = await supabase
       .from("models").select("*")
       .eq("slug", slug)
       .eq("status", "published")
-      .limit(1).maybeSingle();
+      .maybeSingle();
 
-    if (exactMatch) {
-      model = exactMatch;
-    } else {
-      // 2. Keywords match
-      const { data: keywordMatch } = await supabase
-        .from("models").select("*")
-        .eq("status", "published")
-        .or(`keywords_en.cs.{${searchTerm}},keywords_hi.cs.{${searchTerm}},keywords_ne.cs.{${searchTerm}}`)
-        .order("viral_score", { ascending: false })
-        .limit(1).maybeSingle();
+    if (existingModel?.file_url) {
+      // Model exists — load it and get simulation
+      setModelUrl(existingModel.file_url);
+      setLoadingProgress(40);
+      setMeshyStage("Loading existing model...");
 
-      if (keywordMatch) {
-        model = keywordMatch;
-      } else {
-        // 3. Fuzzy name/subject search
-        for (const word of words) {
-          if (word.length < 2) continue;
-          const pattern = `%${word}%`;
-          const { data: fuzzyMatch } = await supabase
-            .from("models").select("*")
-            .eq("status", "published")
-            .or(`name.ilike.${pattern},subject.ilike.${pattern},slug.ilike.${pattern}`)
-            .order("viral_score", { ascending: false })
-            .limit(1).maybeSingle();
-          if (fuzzyMatch) { model = fuzzyMatch; break; }
-        }
+      let parts: string[] = existingModel.named_parts?.length ? existingModel.named_parts : [];
+      if (!parts.length && existingModel.file_url.endsWith(".glb")) {
+        parts = await extractModelPartsFromGlb(existingModel.file_url);
+        setModelParts(parts);
       }
-    }
 
-    setLoadingProgress(30);
-    if (model?.file_url) { setModelUrl(model.file_url); }
-    else { setModelUrl(null); }
-
-    let effectiveNamedParts: string[] = model?.named_parts?.length ? model.named_parts : [];
-    if (!effectiveNamedParts.length && model?.file_url?.toLowerCase().endsWith(".glb")) {
-      setLoadingProgress(45);
-      const extracted = await extractModelPartsFromGlb(model.file_url);
-      if (extracted.length > 0) { effectiveNamedParts = extracted; setModelParts(extracted); }
-    }
-    setLoadingProgress(55);
-
-    if (model?.id) {
-      const { data: cached } = await supabase.from("simulation_cache").select("*").eq("model_id", model.id).eq("language", "en").maybeSingle();
+      // Check simulation cache
+      const { data: cached } = await supabase.from("simulation_cache").select("*").eq("model_id", existingModel.id).eq("language", "en").maybeSingle();
       if (cached?.ai_response) {
-        const rawCached = cached.ai_response as { steps?: Array<{ part?: string }> };
-        const cacheHasUnresolvedParts = effectiveNamedParts.length > 0 &&
-          Array.isArray(rawCached.steps) &&
-          rawCached.steps.some((s) => { const p = typeof s?.part === "string" ? s.part : ""; return p.trim().length > 0 && !resolvePartName(p, effectiveNamedParts); });
-        if (!cacheHasUnresolvedParts) {
-          setLoadingProgress(90);
-          const normalized = normalizeSimulationData(cached.ai_response, effectiveNamedParts, t);
+        setLoadingProgress(90);
+        const normalized = normalizeSimulationData(cached.ai_response, parts, t);
+        setSimulation(normalized);
+        setCurrentStep(resumeStep || 0);
+        setLoadingProgress(100);
+        await supabase.from("simulation_cache").update({ serve_count: (cached.serve_count || 0) + 1 }).eq("id", cached.id);
+        if (user) {
+          supabase.from("user_library").upsert({ user_id: user.id, model_id: existingModel.id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
+        }
+        setTimeout(() => setIsLoading(false), 300);
+        return;
+      }
+
+      // Generate simulation via enhance-model
+      setLoadingProgress(60);
+      try {
+        const { data: simData, error } = await supabase.functions.invoke("enhance-model", {
+          body: { modelName: t, subject: existingModel.subject || "science", namedParts: parts, language: "en" },
+        });
+        if (!error && simData?.steps) {
+          const normalized = normalizeSimulationData(simData, parts, t);
           setSimulation(normalized);
           setCurrentStep(resumeStep || 0);
-          setLoadingProgress(100);
-          await supabase.from("simulation_cache").update({ serve_count: (cached.serve_count || 0) + 1 }).eq("id", cached.id);
-          if (user && model?.id) {
-            supabase.from("user_library").upsert({ user_id: user.id, model_id: model.id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
+          if (user) {
+            supabase.from("user_library").upsert({ user_id: user.id, model_id: existingModel.id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
           }
-          setTimeout(() => setIsLoading(false), 300);
-          return;
+          // Cache it
+          const normalizedJson = normalized as unknown as Json;
+          const { data: ec } = await supabase.from("simulation_cache").select("id").eq("model_id", existingModel.id).eq("language", "en").maybeSingle();
+          if (ec?.id) await supabase.from("simulation_cache").update({ ai_response: normalizedJson }).eq("id", ec.id);
+          else await supabase.from("simulation_cache").insert([{ model_id: existingModel.id, language: "en", ai_response: normalizedJson }]);
+          setTodayCount(prev => prev + 1);
         }
+      } catch (err) {
+        console.error("Simulation generation failed:", err);
+        setSimulation(normalizeSimulationData(null, parts, t));
       }
+      setLoadingProgress(100);
+      setTimeout(() => setIsLoading(false), 400);
+      return;
     }
 
-    // Check generation limit strictly for ALL new generations (not from cache)
+    // 2. No existing model — generate via Meshy AI
     if (remaining <= 0) {
       setIsLoading(false);
       return;
     }
 
-    setLoadingProgress(65);
     try {
-      const { data, error } = await supabase.functions.invoke("enhance-model", {
-        body: { modelName: t, subject: model?.subject || "science", namedParts: effectiveNamedParts, language: "en" },
+      // Step A: Create preview
+      setMeshyStage("Creating 3D preview...");
+      setLoadingProgress(10);
+      const { data: previewData, error: previewErr } = await supabase.functions.invoke("meshy-3d", {
+        body: {
+          action: "create_preview",
+          prompt: `A detailed, realistic, educational 3D model of ${t}. Scientific accuracy. Clean topology. Suitable for student learning.`,
+          negativePrompt: "low quality, low resolution, low poly, ugly, blurry, cartoon, abstract",
+        },
       });
-      if (error) throw error;
+      if (previewErr) throw previewErr;
+
+      // Step B: Poll preview
+      setMeshyStage("Generating 3D mesh...");
+      setLoadingProgress(20);
+      const previewResult = await pollMeshyTask(previewData.task_id);
+
+      // Step C: Create refine
+      setMeshyStage("Refining with textures...");
+      setLoadingProgress(50);
+      const { data: refineData, error: refineErr } = await supabase.functions.invoke("meshy-3d", {
+        body: { action: "create_refine", preview_task_id: previewData.task_id },
+      });
+      if (refineErr) throw refineErr;
+
+      // Step D: Poll refine
+      setMeshyStage("Applying HD textures...");
+      setLoadingProgress(60);
+      const refineResult = await pollMeshyTask(refineData.task_id);
+
+      const glbUrl = refineResult.model_urls?.glb;
+      if (!glbUrl) throw new Error("No GLB URL in refined result");
+
+      // Step E: Save model to storage + DB
+      setMeshyStage("Saving 3D model...");
       setLoadingProgress(85);
-      if (data && data.steps) {
-        const normalized = normalizeSimulationData(data, effectiveNamedParts, t);
+      const { data: saveData, error: saveErr } = await supabase.functions.invoke("meshy-3d", {
+        body: { action: "save_model", glb_url: glbUrl, topic: t, subject: "science" },
+      });
+      if (saveErr) throw saveErr;
+
+      setModelUrl(saveData.file_url);
+      setLoadingProgress(90);
+
+      // Extract parts from the new model
+      let parts: string[] = [];
+      if (saveData.file_url?.endsWith(".glb")) {
+        parts = await extractModelPartsFromGlb(saveData.file_url);
+        setModelParts(parts);
+      }
+
+      // Step F: Generate simulation
+      setMeshyStage("Creating learning simulation...");
+      const { data: simData, error: simErr } = await supabase.functions.invoke("enhance-model", {
+        body: { modelName: t, subject: "science", namedParts: parts, language: "en" },
+      });
+
+      if (!simErr && simData?.steps) {
+        const normalized = normalizeSimulationData(simData, parts, t);
         setSimulation(normalized);
         setCurrentStep(resumeStep || 0);
-        if (user && model?.id) {
-          supabase.from("user_library").upsert({ user_id: user.id, model_id: model.id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
-        }
-        if (model?.id) {
-          const { data: existingCache } = await supabase.from("simulation_cache").select("id").eq("model_id", model.id).eq("language", "en").maybeSingle();
+
+        // Save to library and cache
+        if (user && saveData.model_id) {
+          supabase.from("user_library").upsert({ user_id: user.id, model_id: saveData.model_id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
           const normalizedJson = normalized as unknown as Json;
-          if (existingCache?.id) { await supabase.from("simulation_cache").update({ ai_response: normalizedJson, updated_at: new Date().toISOString() }).eq("id", existingCache.id); }
-          else { await supabase.from("simulation_cache").insert([{ model_id: model.id, language: "en", ai_response: normalizedJson }]); }
+          await supabase.from("simulation_cache").insert([{ model_id: saveData.model_id, language: "en", ai_response: normalizedJson }]);
         }
         setTodayCount(prev => prev + 1);
+      } else {
+        setSimulation(normalizeSimulationData(null, parts, t));
       }
     } catch (err) {
-      console.error("AI enhancement failed:", err);
-      setSimulation(normalizeSimulationData(null, effectiveNamedParts, t));
+      console.error("Meshy generation failed:", err);
+      // Fallback: show simulation without 3D model
+      setSimulation(normalizeSimulationData(null, [], t));
       setCurrentStep(0);
     }
+
     setLoadingProgress(100);
     setTimeout(() => setIsLoading(false), 400);
   };
@@ -354,13 +404,7 @@ export function LearnView() {
     if (!simulation) return;
     stopTTS();
     const next = currentStep + dir;
-    if (next >= 0 && next < simulation.steps.length) {
-      setCurrentStep(next);
-      // Save progress
-      if (user && simulation) {
-        // Update last_step in library silently
-      }
-    }
+    if (next >= 0 && next < simulation.steps.length) setCurrentStep(next);
   };
 
   return (
@@ -425,15 +469,17 @@ export function LearnView() {
           <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
             <div className="relative">
               <div className="w-14 h-14 rounded-xl bg-secondary flex items-center justify-center">
-                <Atom size={28} strokeWidth={1} className="text-primary-custom" style={{ animation: "spin 3s linear infinite" }} />
+                <Box size={28} strokeWidth={1} className="text-primary-custom" style={{ animation: "spin 3s linear infinite" }} />
               </div>
               <div className="absolute -inset-3 rounded-xl border border-border" style={{ animation: "pulse-dot 2s ease-in-out infinite" }} />
             </div>
-            <div className="w-full max-w-[180px]">
-              <Progress value={loadingProgress} className="h-1" />
+            <div className="w-full max-w-[200px]">
+              <Progress value={loadingProgress} className="h-1.5" />
             </div>
             <p className="text-[11px] text-primary-custom font-medium text-center animate-fade-in">{loadingMsg}</p>
-            <p className="text-[9px] text-tertiary-custom uppercase tracking-widest">5-10 seconds</p>
+            {meshyStage && (
+              <p className="text-[9px] text-tertiary-custom uppercase tracking-widest">{meshyStage}</p>
+            )}
           </div>
         ) : simulation ? (
           <>
@@ -523,7 +569,7 @@ export function LearnView() {
           )}
 
           <div className="px-3 py-2 flex items-center justify-between shrink-0 border-t border-border">
-          <div className="flex rounded-md overflow-hidden border border-border h-6">
+            <div className="flex rounded-md overflow-hidden border border-border h-6">
               {(["en", "hi"] as const).map((l) => (
                 <button
                   key={l}
