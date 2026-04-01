@@ -60,7 +60,6 @@ export default function Library() {
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const { setMode } = useApp();
   const navigate = useNavigate();
 
   // Count today's generations
