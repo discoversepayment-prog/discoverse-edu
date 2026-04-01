@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
 import {
-  Sparkles, ChevronLeft, ChevronRight, Play, Pause, Square,
-  Volume2, VolumeX, Share2, RotateCcw, Atom, Loader2, Wand2,
-  Eye, Crown, Box,
+  Sparkles, ChevronLeft, ChevronRight, Play, Pause,
+  Volume2, VolumeX, RotateCcw, Loader2, Wand2,
+  Eye, Crown, Box, Zap, Diamond,
 } from "lucide-react";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { ModelViewer } from "./ModelViewer";
@@ -22,6 +22,10 @@ interface SimStep {
   narration_hi: string;
   label_en: string;
   label_hi: string;
+  function_en?: string;
+  function_hi?: string;
+  animation?: string;
+  isolate?: boolean;
   camera?: { x: number; y: number; z: number };
 }
 
@@ -30,22 +34,21 @@ interface Simulation {
   steps: SimStep[];
 }
 
-const topicSuggestions = ["Human Heart", "DNA Structure", "Solar System", "Atom Model", "Cell Division", "Water Molecule"];
+const topicSuggestions = ["Human Heart", "DNA Structure", "Solar System", "Atom Model", "Human Brain", "Lungs"];
 const fallbackStepColors = ["#CC4444", "#4488CC", "#44AA44", "#D17A00", "#7D4CC2", "#D14A8B"];
 
-const isHexColor = (color: unknown): color is string => typeof color === "string" && /^#([0-9a-fA-F]{6})$/.test(color);
 const normalizeToken = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const resolvePartName = (candidate: string, availableParts: string[]) => {
   const trimmed = candidate.trim();
   if (!trimmed || availableParts.length === 0) return "";
   if (availableParts.includes(trimmed)) return trimmed;
-  const normalizedCandidate = normalizeToken(trimmed);
-  const exact = availableParts.find((part) => normalizeToken(part) === normalizedCandidate);
+  const nc = normalizeToken(trimmed);
+  const exact = availableParts.find((p) => normalizeToken(p) === nc);
   if (exact) return exact;
-  const partial = availableParts.find((part) => {
-    const normalizedPart = normalizeToken(part);
-    return normalizedPart.includes(normalizedCandidate) || normalizedCandidate.includes(normalizedPart);
+  const partial = availableParts.find((p) => {
+    const np = normalizeToken(p);
+    return np.includes(nc) || nc.includes(np);
   });
   return partial || "";
 };
@@ -74,13 +77,16 @@ const normalizeSimulationData = (rawSimulation: unknown, availableParts: string[
     return {
       title: typeof step.title === "string" && step.title.trim() ? step.title.trim() : `Step ${index + 1}`,
       part: availableParts.length > 0 ? resolvePartName(rawPart, availableParts) : rawPart,
-      color: isHexColor(step.color) ? step.color : fallbackStepColors[index % fallbackStepColors.length],
+      color: typeof step.color === "string" && /^#([0-9a-fA-F]{6})$/.test(step.color) ? step.color : fallbackStepColors[index % fallbackStepColors.length],
       narration_en: typeof step.narration_en === "string" && step.narration_en.trim() ? step.narration_en.trim() : `Let's explore ${topicLabel}.`,
       narration_hi: typeof step.narration_hi === "string" && step.narration_hi.trim() ? step.narration_hi.trim() : `${topicLabel} को समझते हैं।`,
       label_en: typeof step.label_en === "string" && step.label_en.trim() ? step.label_en.trim() : topicLabel,
       label_hi: typeof step.label_hi === "string" && step.label_hi.trim() ? step.label_hi.trim() : topicLabel,
-      camera: step.camera && typeof step.camera.x === "number" && typeof step.camera.y === "number" && typeof step.camera.z === "number"
-        ? step.camera : { x: 0, y: 0, z: 4 },
+      function_en: typeof step.function_en === "string" ? step.function_en.trim() : "",
+      function_hi: typeof step.function_hi === "string" ? step.function_hi.trim() : "",
+      animation: typeof step.animation === "string" ? step.animation : "",
+      isolate: typeof step.isolate === "boolean" ? step.isolate : index > 0 && index < rawSteps.length - 1,
+      camera: step.camera && typeof step.camera.x === "number" ? step.camera : { x: 0, y: 0, z: 4 },
     };
   });
 
@@ -91,25 +97,24 @@ const normalizeSimulationData = (rawSimulation: unknown, availableParts: string[
   return {
     title: topicLabel,
     steps: [
-      { title: topicLabel, part: "", color: fallbackStepColors[0], narration_en: `This is ${topicLabel}. Tap play to hear each part explained.`, narration_hi: `यह ${topicLabel} है। सुनने के लिए प्ले दबाएं।`, label_en: topicLabel, label_hi: topicLabel, camera: { x: 0, y: 0, z: 4 } },
-      { title: "Key Parts", part: "", color: fallbackStepColors[1], narration_en: `${topicLabel} has several key components.`, narration_hi: `${topicLabel} में कई महत्वपूर्ण भाग हैं।`, label_en: "Parts", label_hi: "भाग", camera: { x: 2, y: 1, z: 3 } },
-      { title: "Summary", part: "", color: fallbackStepColors[2], narration_en: `That's ${topicLabel}. Quick and clear.`, narration_hi: `यह था ${topicLabel}। सरल और स्पष्ट।`, label_en: "Summary", label_hi: "सारांश", camera: { x: 0, y: 0, z: 4 } },
+      { title: topicLabel, part: "", color: fallbackStepColors[0], narration_en: `This is ${topicLabel}. Let's break it down.`, narration_hi: `यह ${topicLabel} है। आइए समझते हैं।`, label_en: topicLabel, label_hi: topicLabel, function_en: "", function_hi: "", animation: "", isolate: false, camera: { x: 0, y: 0, z: 4 } },
     ],
   };
 };
 
 const MESHY_LOADING_MESSAGES = [
-  "🧊 Creating 3D preview mesh...",
-  "🎨 AI is sculpting your model...",
+  "🧊 Creating 3D mesh...",
+  "🎨 Sculpting your model...",
   "✨ Generating geometry...",
-  "🔧 Refining with HD textures...",
-  "🎭 Applying materials & details...",
-  "📦 Packaging your 3D model...",
-  "🚀 Almost there, finalizing...",
+  "🔧 Refining textures...",
+  "🎭 Applying materials...",
+  "📦 Packaging model...",
+  "🚀 Finalizing...",
 ];
 
 const MAX_FREE_GENERATIONS = 3;
 const POLL_INTERVAL = 4000;
+const AUTOPLAY_DELAY = 6000;
 
 export function LearnView() {
   const { user } = useAuth();
@@ -124,9 +129,10 @@ export function LearnView() {
   const [modelUrl, setModelUrl] = useState<string | null>(null);
   const [modelParts, setModelParts] = useState<string[]>([]);
   const [isMuted, setIsMuted] = useState(false);
-  const [showPanel, setShowPanel] = useState(true);
   const [todayCount, setTodayCount] = useState(0);
-  const [meshyStage, setMeshyStage] = useState<string>("");
+  const [meshyStage, setMeshyStage] = useState("");
+  const [tier, setTier] = useState<"D1" | "D2">("D1");
+  const [tappedPartInfo, setTappedPartInfo] = useState<{ name: string; func?: string } | null>(null);
   const { language, setLanguage } = useApp();
   const { speak, stop: stopTTS, isSpeaking } = useTTS();
   const autoPlayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -138,7 +144,7 @@ export function LearnView() {
   const resolvedHighlightPart = step ? resolvePartName(step.part, modelParts) || undefined : undefined;
   const remaining = Math.max(0, MAX_FREE_GENERATIONS - todayCount);
 
-  // Check for resume state from Library
+  // Resume from Library
   useEffect(() => {
     const state = location.state as { resumeTopic?: string; resumeStep?: number } | null;
     if (state?.resumeTopic && !resumeHandled.current) {
@@ -148,7 +154,7 @@ export function LearnView() {
     }
   }, [location.state]);
 
-  // Load today's generation count
+  // Load today's count
   useEffect(() => {
     if (!user) return;
     const loadCount = async () => {
@@ -166,7 +172,7 @@ export function LearnView() {
     loadCount();
   }, [user]);
 
-  // Animated loading messages
+  // Loading message animation
   useEffect(() => {
     if (isLoading) {
       let idx = 0;
@@ -181,7 +187,7 @@ export function LearnView() {
 
   const lastNarratedStep = useRef<number>(-1);
 
-  // Auto-play logic
+  // Autoplay with auto-advance
   useEffect(() => {
     if (!isAutoPlaying || !simulation) return;
     if (!isMuted && step && lastNarratedStep.current !== currentStep) {
@@ -198,7 +204,7 @@ export function LearnView() {
         setIsAutoPlaying(false);
         lastNarratedStep.current = -1;
       }
-    }, isMuted ? 5000 : 1500);
+    }, isMuted ? AUTOPLAY_DELAY : 1500);
     return () => { if (autoPlayRef.current) clearTimeout(autoPlayRef.current); };
   }, [isAutoPlaying, currentStep, simulation, isMuted, language, step, speak, isSpeaking]);
 
@@ -206,13 +212,19 @@ export function LearnView() {
     if (!isAutoPlaying) lastNarratedStep.current = -1;
   }, [isAutoPlaying]);
 
+  // Auto-start autoplay when simulation loads
+  useEffect(() => {
+    if (simulation && !isLoading && !isAutoPlaying) {
+      setIsAutoPlaying(true);
+    }
+  }, [simulation, isLoading]);
+
   const handleAutoPlay = () => {
     if (isAutoPlaying) { setIsAutoPlaying(false); stopTTS(); }
     else if (isSpeaking) { stopTTS(); }
     else { setIsAutoPlaying(true); }
   };
 
-  // Poll Meshy task status until SUCCEEDED or FAILED
   const pollMeshyTask = async (taskId: string): Promise<{ status: string; model_urls?: { glb?: string } }> => {
     while (!abortRef.current) {
       const { data, error } = await supabase.functions.invoke("meshy-3d", {
@@ -220,12 +232,11 @@ export function LearnView() {
       });
       if (error) throw error;
       if (data.status === "SUCCEEDED") return data;
-      if (data.status === "FAILED" || data.status === "EXPIRED") throw new Error(`Meshy task ${data.status}`);
-      // Update progress
+      if (data.status === "FAILED" || data.status === "EXPIRED") throw new Error(`Task ${data.status}`);
       setLoadingProgress((prev) => Math.min(prev + 2, 90));
       await new Promise((r) => setTimeout(r, POLL_INTERVAL));
     }
-    throw new Error("Generation cancelled");
+    throw new Error("Cancelled");
   };
 
   const handleGenerate = async (topic?: string, resumeStep?: number) => {
@@ -237,22 +248,19 @@ export function LearnView() {
     setSimulation(null);
     setModelParts([]);
     setLoadingProgress(5);
-    setShowPanel(true);
+    setIsAutoPlaying(false);
+    setTappedPartInfo(null);
 
     const slug = t.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
-    // 1. Check if model already exists in DB
+    // 1. Check DB for existing model
     const { data: existingModel } = await supabase
-      .from("models").select("*")
-      .eq("slug", slug)
-      .eq("status", "published")
-      .maybeSingle();
+      .from("models").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
 
     if (existingModel?.file_url) {
-      // Model exists — load it and get simulation
       setModelUrl(existingModel.file_url);
       setLoadingProgress(40);
-      setMeshyStage("Loading existing model...");
+      setMeshyStage("Loading model...");
 
       let parts: string[] = existingModel.named_parts?.length ? existingModel.named_parts : [];
       if (!parts.length && existingModel.file_url.endsWith(".glb")) {
@@ -260,7 +268,6 @@ export function LearnView() {
         setModelParts(parts);
       }
 
-      // Check simulation cache
       const { data: cached } = await supabase.from("simulation_cache").select("*").eq("model_id", existingModel.id).eq("language", "en").maybeSingle();
       if (cached?.ai_response) {
         setLoadingProgress(90);
@@ -276,11 +283,10 @@ export function LearnView() {
         return;
       }
 
-      // Generate simulation via enhance-model
       setLoadingProgress(60);
       try {
         const { data: simData, error } = await supabase.functions.invoke("enhance-model", {
-          body: { modelName: t, subject: existingModel.subject || "science", namedParts: parts, language: "en" },
+          body: { modelName: t, subject: existingModel.subject || "science", namedParts: parts, language: "en", tier },
         });
         if (!error && simData?.steps) {
           const normalized = normalizeSimulationData(simData, parts, t);
@@ -289,7 +295,6 @@ export function LearnView() {
           if (user) {
             supabase.from("user_library").upsert({ user_id: user.id, model_id: existingModel.id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
           }
-          // Cache it
           const normalizedJson = normalized as unknown as Json;
           const { data: ec } = await supabase.from("simulation_cache").select("id").eq("model_id", existingModel.id).eq("language", "en").maybeSingle();
           if (ec?.id) await supabase.from("simulation_cache").update({ ai_response: normalizedJson }).eq("id", ec.id);
@@ -297,7 +302,7 @@ export function LearnView() {
           setTodayCount(prev => prev + 1);
         }
       } catch (err) {
-        console.error("Simulation generation failed:", err);
+        console.error("Simulation failed:", err);
         setSimulation(normalizeSimulationData(null, parts, t));
       }
       setLoadingProgress(100);
@@ -305,31 +310,30 @@ export function LearnView() {
       return;
     }
 
-    // 2. No existing model — generate via Meshy AI
-    if (remaining <= 0) {
-      setIsLoading(false);
-      return;
-    }
+    // 2. Generate via Meshy AI
+    if (remaining <= 0) { setIsLoading(false); return; }
 
     try {
-      // Step A: Create preview
       setMeshyStage("Creating 3D preview...");
       setLoadingProgress(10);
+
+      const meshyPrompt = tier === "D2"
+        ? `A highly detailed, anatomically accurate, photorealistic educational 3D model of ${t}. Scientific precision. High-poly. Clear distinct labeled parts. Professional medical/scientific illustration quality.`
+        : `A detailed, realistic, educational 3D model of ${t}. Scientific accuracy. Clean topology. Suitable for student learning.`;
+
       const { data: previewData, error: previewErr } = await supabase.functions.invoke("meshy-3d", {
         body: {
           action: "create_preview",
-          prompt: `A detailed, realistic, educational 3D model of ${t}. Scientific accuracy. Clean topology. Suitable for student learning.`,
+          prompt: meshyPrompt,
           negativePrompt: "low quality, low resolution, low poly, ugly, blurry, cartoon, abstract",
         },
       });
       if (previewErr) throw previewErr;
 
-      // Step B: Poll preview
       setMeshyStage("Generating 3D mesh...");
       setLoadingProgress(20);
-      const previewResult = await pollMeshyTask(previewData.task_id);
+      await pollMeshyTask(previewData.task_id);
 
-      // Step C: Create refine
       setMeshyStage("Refining with textures...");
       setLoadingProgress(50);
       const { data: refineData, error: refineErr } = await supabase.functions.invoke("meshy-3d", {
@@ -337,16 +341,14 @@ export function LearnView() {
       });
       if (refineErr) throw refineErr;
 
-      // Step D: Poll refine
       setMeshyStage("Applying HD textures...");
       setLoadingProgress(60);
       const refineResult = await pollMeshyTask(refineData.task_id);
 
       const glbUrl = refineResult.model_urls?.glb;
-      if (!glbUrl) throw new Error("No GLB URL in refined result");
+      if (!glbUrl) throw new Error("No GLB URL");
 
-      // Step E: Save model to storage + DB
-      setMeshyStage("Saving 3D model...");
+      setMeshyStage("Saving model...");
       setLoadingProgress(85);
       const { data: saveData, error: saveErr } = await supabase.functions.invoke("meshy-3d", {
         body: { action: "save_model", glb_url: glbUrl, topic: t, subject: "science" },
@@ -356,25 +358,21 @@ export function LearnView() {
       setModelUrl(saveData.file_url);
       setLoadingProgress(90);
 
-      // Extract parts from the new model
       let parts: string[] = [];
       if (saveData.file_url?.endsWith(".glb")) {
         parts = await extractModelPartsFromGlb(saveData.file_url);
         setModelParts(parts);
       }
 
-      // Step F: Generate simulation
-      setMeshyStage("Creating learning simulation...");
+      setMeshyStage("Creating learning steps...");
       const { data: simData, error: simErr } = await supabase.functions.invoke("enhance-model", {
-        body: { modelName: t, subject: "science", namedParts: parts, language: "en" },
+        body: { modelName: t, subject: "science", namedParts: parts, language: "en", tier },
       });
 
       if (!simErr && simData?.steps) {
         const normalized = normalizeSimulationData(simData, parts, t);
         setSimulation(normalized);
         setCurrentStep(resumeStep || 0);
-
-        // Save to library and cache
         if (user && saveData.model_id) {
           supabase.from("user_library").upsert({ user_id: user.id, model_id: saveData.model_id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
           const normalizedJson = normalized as unknown as Json;
@@ -385,8 +383,7 @@ export function LearnView() {
         setSimulation(normalizeSimulationData(null, parts, t));
       }
     } catch (err) {
-      console.error("Meshy generation failed:", err);
-      // Fallback: show simulation without 3D model
+      console.error("Generation failed:", err);
       setSimulation(normalizeSimulationData(null, [], t));
       setCurrentStep(0);
     }
@@ -406,6 +403,20 @@ export function LearnView() {
     const next = currentStep + dir;
     if (next >= 0 && next < simulation.steps.length) setCurrentStep(next);
   };
+
+  // Handle tap on 3D model part
+  const handlePartTapped = useCallback((part: { name: string }) => {
+    // Find matching step info for this part
+    const matchingStep = simulation?.steps.find(s => {
+      const resolved = resolvePartName(s.part, modelParts);
+      return resolved === part.name;
+    });
+    setTappedPartInfo({
+      name: part.name,
+      func: matchingStep ? (language === "en" ? matchingStep.function_en : matchingStep.function_hi) : undefined,
+    });
+    setTimeout(() => setTappedPartInfo(null), 4000);
+  }, [simulation, modelParts, language]);
 
   return (
     <div className="flex flex-col h-full relative">
@@ -431,12 +442,32 @@ export function LearnView() {
         </button>
       </div>
 
-      {/* Generation limit + topic chips */}
+      {/* Tier selector + topic chips */}
       <div className="px-3 flex items-center gap-2 pb-2 shrink-0">
+        {/* Tier toggle */}
+        <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
+          <button
+            onClick={() => setTier("D1")}
+            className={`px-2.5 py-1 text-[9px] font-bold flex items-center gap-1 transition-colors ${
+              tier === "D1" ? "bg-primary text-primary-foreground" : "text-tertiary-custom hover:bg-secondary"
+            }`}
+          >
+            <Zap size={8} /> D1
+          </button>
+          <button
+            onClick={() => setTier("D2")}
+            className={`px-2.5 py-1 text-[9px] font-bold flex items-center gap-1 transition-colors ${
+              tier === "D2" ? "bg-accent text-accent-foreground" : "text-tertiary-custom hover:bg-secondary"
+            }`}
+          >
+            <Diamond size={8} /> D2
+          </button>
+        </div>
+
         <div className="flex items-center gap-1 bg-card border border-border rounded-md px-2 py-1 shrink-0">
-          <Atom size={10} className={remaining > 0 ? "text-primary-custom" : "text-tertiary-custom"} />
           <span className="text-[9px] font-bold text-tertiary-custom tabular-nums">{remaining}/{MAX_FREE_GENERATIONS}</span>
         </div>
+
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
           {topicSuggestions.map((t) => (
             <button
@@ -451,14 +482,14 @@ export function LearnView() {
         </div>
       </div>
 
-      {/* Limit reached overlay */}
+      {/* Limit reached */}
       {remaining <= 0 && !simulation && (
-        <div className="mx-3 mb-2 bg-card border border-border rounded-xl p-4 text-center animate-scale-up">
+        <div className="mx-3 mb-2 bg-card border border-border rounded-xl p-4 text-center animate-scale-in">
           <Crown size={20} className="text-tertiary-custom mx-auto mb-2" />
           <p className="text-[12px] font-bold text-primary-custom mb-1">Daily limit reached</p>
           <p className="text-[10px] text-tertiary-custom mb-3">You've used {MAX_FREE_GENERATIONS} free generations today</p>
           <button className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-[11px] font-bold press hover:bg-primary/90 transition-all">
-            Upgrade Plan
+            Upgrade to D2
           </button>
         </div>
       )}
@@ -471,19 +502,24 @@ export function LearnView() {
               <div className="w-14 h-14 rounded-xl bg-secondary flex items-center justify-center">
                 <Box size={28} strokeWidth={1} className="text-primary-custom" style={{ animation: "spin 3s linear infinite" }} />
               </div>
-              <div className="absolute -inset-3 rounded-xl border border-border" style={{ animation: "pulse-dot 2s ease-in-out infinite" }} />
             </div>
             <div className="w-full max-w-[200px]">
               <Progress value={loadingProgress} className="h-1.5" />
             </div>
             <p className="text-[11px] text-primary-custom font-medium text-center animate-fade-in">{loadingMsg}</p>
-            {meshyStage && (
-              <p className="text-[9px] text-tertiary-custom uppercase tracking-widest">{meshyStage}</p>
-            )}
+            {meshyStage && <p className="text-[9px] text-tertiary-custom uppercase tracking-widest">{meshyStage}</p>}
           </div>
         ) : simulation ? (
           <>
-            <ModelViewer modelUrl={modelUrl} highlightPart={resolvedHighlightPart} highlightColor={step?.color} onPartsLoaded={onPartsLoaded} />
+            <ModelViewer
+              modelUrl={modelUrl}
+              highlightPart={resolvedHighlightPart}
+              highlightColor={step?.color}
+              isolatePart={step?.isolate}
+              animationType={step?.animation}
+              onPartsLoaded={onPartsLoaded}
+              onPartTapped={handlePartTapped}
+            />
 
             {/* Step indicator */}
             <div className="absolute top-2.5 left-2.5 bg-card/90 backdrop-blur-sm border border-border rounded-md px-2 py-1 flex items-center gap-1.5">
@@ -493,13 +529,26 @@ export function LearnView() {
               </span>
             </div>
 
-            {/* Part label */}
+            {/* Part label + function */}
             {step && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border px-3 py-1 rounded-md animate-fade-in" key={currentStep}>
-                <p className="text-[10px] font-bold text-primary-custom flex items-center gap-1.5 uppercase tracking-wider">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border px-3 py-1.5 rounded-lg animate-fade-in max-w-[300px]" key={currentStep}>
+                <p className="text-[11px] font-bold text-primary-custom flex items-center gap-1.5 uppercase tracking-wider">
                   <Eye size={10} className="text-tertiary-custom" />
                   {language === "en" ? step.label_en : step.label_hi}
                 </p>
+                {(step.function_en || step.function_hi) && (
+                  <p className="text-[9px] text-secondary-custom mt-0.5">
+                    {language === "en" ? step.function_en : step.function_hi}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Tapped part tooltip */}
+            {tappedPartInfo && (
+              <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur-md border border-primary/30 px-4 py-2 rounded-xl animate-scale-in shadow-lg z-10">
+                <p className="text-[11px] font-bold text-primary-custom">{tappedPartInfo.name.replace(/_/g, " ")}</p>
+                {tappedPartInfo.func && <p className="text-[9px] text-secondary-custom mt-0.5">{tappedPartInfo.func}</p>}
               </div>
             )}
 
@@ -519,16 +568,9 @@ export function LearnView() {
 
       {/* Bottom Panel */}
       {simulation && !isLoading && (
-        <div className={`bg-card border-t border-border rounded-t-xl transition-all duration-300 ${showPanel ? "max-h-[40vh]" : "max-h-[90px]"} flex flex-col shrink-0 overflow-hidden mb-14 md:mb-0`}>
-          <button
-            onClick={() => setShowPanel(!showPanel)}
-            className="w-full flex items-center justify-center py-1.5 shrink-0 active:bg-secondary"
-          >
-            <div className="w-8 h-0.5 bg-border rounded-full" />
-          </button>
-
-          {/* Step progress */}
-          <div className="px-3 pb-1.5 flex gap-0.5 shrink-0">
+        <div className="bg-card border-t border-border rounded-t-xl flex flex-col shrink-0 overflow-hidden mb-14 md:mb-0">
+          {/* Step progress bar */}
+          <div className="px-3 pt-2 pb-1.5 flex gap-0.5 shrink-0">
             {simulation.steps.map((s, i) => (
               <button
                 key={i}
@@ -537,37 +579,26 @@ export function LearnView() {
                 style={{
                   backgroundColor: i === currentStep
                     ? (s.color || "hsl(var(--primary))")
-                    : i < currentStep
-                      ? "hsl(var(--primary) / 0.3)"
-                      : "hsl(var(--border))",
+                    : i < currentStep ? "hsl(var(--primary) / 0.3)" : "hsl(var(--border))",
                 }}
               />
             ))}
           </div>
 
-          {step && showPanel && (
-            <div className="px-4 flex-1 overflow-y-auto animate-fade-in" key={currentStep}>
-              <div className="flex items-center gap-2 mb-1">
+          {/* Step content - concise */}
+          {step && (
+            <div className="px-4 py-2 animate-fade-in" key={currentStep}>
+              <div className="flex items-center gap-2 mb-0.5">
                 <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: step.color }} />
-                <h3 className="text-[13px] font-bold text-primary-custom">{step.title}</h3>
+                <h3 className="text-[12px] font-bold text-primary-custom">{step.title}</h3>
               </div>
-              <p className="text-[11px] text-secondary-custom leading-relaxed pl-4">
+              <p className="text-[11px] text-secondary-custom leading-snug pl-4">
                 {language === "en" ? step.narration_en : step.narration_hi}
               </p>
-              <div className="flex items-center gap-2 mt-2 pl-4">
-                <div className="flex items-end gap-[2px]">
-                  {[6, 12, 5, 9].map((h, i) => (
-                    <div key={i} className="w-[1.5px] bg-primary-custom rounded-full transition-all"
-                      style={{ height: isSpeaking ? h : 2, transitionDuration: "300ms", transitionDelay: `${i * 80}ms` }} />
-                  ))}
-                </div>
-                <span className="text-[9px] text-tertiary-custom uppercase tracking-wider font-medium">
-                  {isSpeaking ? "Speaking..." : "Tap ▶ to listen"}
-                </span>
-              </div>
             </div>
           )}
 
+          {/* Controls */}
           <div className="px-3 py-2 flex items-center justify-between shrink-0 border-t border-border">
             <div className="flex rounded-md overflow-hidden border border-border h-6">
               {(["en", "hi"] as const).map((l) => (
@@ -589,7 +620,7 @@ export function LearnView() {
               </button>
               <button onClick={handleAutoPlay}
                 className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/90 press transition-all">
-                {isAutoPlaying ? <Pause size={12} className="text-primary-foreground" /> : isSpeaking ? <Square size={10} className="text-primary-foreground" /> : <Play size={12} className="text-primary-foreground ml-0.5" />}
+                {isAutoPlaying ? <Pause size={12} className="text-primary-foreground" /> : <Play size={12} className="text-primary-foreground ml-0.5" />}
               </button>
               <button onClick={() => goStep(1)} disabled={currentStep === (simulation?.steps.length ?? 0) - 1} className="w-7 h-7 rounded-md border border-border flex items-center justify-center disabled:opacity-20 press">
                 <ChevronRight size={12} strokeWidth={1.5} className="text-tertiary-custom" />
@@ -599,9 +630,11 @@ export function LearnView() {
               </button>
             </div>
 
-            <button className="w-7 h-7 rounded-md border border-border flex items-center justify-center press">
-              <Share2 size={11} className="text-tertiary-custom" />
-            </button>
+            <div className="flex items-center gap-1">
+              {tier === "D2" && (
+                <span className="text-[8px] font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded">D2</span>
+              )}
+            </div>
           </div>
         </div>
       )}

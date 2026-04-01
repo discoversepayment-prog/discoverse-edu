@@ -60,7 +60,6 @@ export default function Library() {
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const { setMode } = useApp();
   const navigate = useNavigate();
 
   // Count today's generations
@@ -107,7 +106,6 @@ export default function Library() {
   const resumeItem = (item: LibraryItem) => {
     if (!item.models) return;
     // Navigate to learn mode and trigger the topic
-    setMode("learn");
     navigate("/app", { state: { resumeTopic: item.models.name, resumeStep: item.last_step || 0 } });
   };
 

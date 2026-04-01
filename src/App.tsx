@@ -11,8 +11,6 @@ import Library from "./pages/Library";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
-import CreateAgent from "./pages/CreateAgent";
-import AgentShare from "./pages/AgentShare";
 import PublicProfile from "./pages/PublicProfile";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
@@ -61,10 +59,8 @@ const App = () => (
               <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/create-agent" element={<ProtectedRoute><CreateAgent /></ProtectedRoute>} />
               <Route path="/wedisni" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
               <Route path="/wedisni/*" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/agent/:slug" element={<AgentShare />} />
               <Route path="/u/:username" element={<PublicProfile />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />

@@ -1,36 +1,25 @@
-import { MessageSquare, BookOpen, Clock, User, LogOut, Shield, Plus } from "lucide-react";
+import { BookOpen, Clock, User, LogOut, Shield } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export function AppSidebar() {
-  const { mode, setMode } = useApp();
   const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminRoute = location.pathname.startsWith("/wedisni");
-  const [canCreateAgent, setCanCreateAgent] = useState(false);
   const [profile, setProfile] = useState<{ display_name?: string; username?: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const { data } = await supabase.from("profiles").select("display_name, username, can_create_agent").eq("user_id", user.id).maybeSingle();
-      if (data) {
-        setProfile({ display_name: data.display_name, username: data.username });
-        setCanCreateAgent(isAdmin || data.can_create_agent || false);
-      }
+      const { data } = await supabase.from("profiles").select("display_name, username").eq("user_id", user.id).maybeSingle();
+      if (data) setProfile({ display_name: data.display_name, username: data.username });
     };
     load();
-  }, [user, isAdmin]);
-
-  const handleNav = (target: "chat" | "learn") => {
-    setMode(target);
-    if (location.pathname !== "/app") navigate("/app");
-  };
+  }, [user]);
 
   const displayName = profile?.display_name || profile?.username || "Explorer";
 
@@ -44,14 +33,9 @@ export function AppSidebar() {
       </div>
 
       <nav className="px-2 space-y-0.5 flex-1">
-        <SidebarItem icon={MessageSquare} label="Agents" active={mode === "chat" && !isAdminRoute && location.pathname === "/app"} onClick={() => handleNav("chat")} />
-        <SidebarItem icon={BookOpen} label="Learn" active={mode === "learn" && !isAdminRoute && location.pathname === "/app"} onClick={() => handleNav("learn")} />
+        <SidebarItem icon={BookOpen} label="Learn" active={!isAdminRoute && location.pathname === "/app"} onClick={() => navigate("/app")} />
         <SidebarItem icon={Clock} label="Library" active={location.pathname === "/library"} onClick={() => navigate("/library")} />
         <SidebarItem icon={User} label="Profile" active={location.pathname === "/profile"} onClick={() => navigate("/profile")} />
-
-        {canCreateAgent && (
-          <SidebarItem icon={Plus} label="Create Agent" active={location.pathname === "/create-agent"} onClick={() => navigate("/create-agent")} />
-        )}
 
         {isAdmin && (
           <>

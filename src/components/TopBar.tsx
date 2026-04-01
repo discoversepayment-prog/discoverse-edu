@@ -3,7 +3,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function TopBar({ title }: { title?: string }) {
-  const { mode, setMode, language, setLanguage } = useApp();
+  const { language, setLanguage } = useApp();
   const { user } = useAuth();
   const avatarUrl = user?.user_metadata?.avatar_url;
 
@@ -14,22 +14,6 @@ export function TopBar({ title }: { title?: string }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-semibold text-primary-custom tracking-tight truncate">{title || "Discoverse"}</p>
-      </div>
-
-      <div className="bg-secondary rounded-lg p-[2px] flex">
-        {(["chat", "learn"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={`px-3 py-1 text-[11px] rounded-md transition-all duration-200 capitalize font-medium tracking-wide ${
-              mode === m
-                ? "bg-primary text-primary-foreground"
-                : "text-tertiary-custom hover:text-primary-custom"
-            }`}
-          >
-            {m}
-          </button>
-        ))}
       </div>
 
       <div className="flex items-center gap-2">
