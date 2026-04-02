@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider } from "@/contexts/AppContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { LaunchScreen } from "@/components/LaunchScreen";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Library from "./pages/Library";
@@ -53,19 +54,21 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<LandingRoute />} />
-              <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
-              <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/wedisni" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/wedisni/*" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/u/:username" element={<PublicProfile />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <LaunchScreen>
+              <Routes>
+                <Route path="/" element={<LandingRoute />} />
+                <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
+                <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/wedisni" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                <Route path="/wedisni/*" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                <Route path="/u/:username" element={<PublicProfile />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </LaunchScreen>
           </BrowserRouter>
         </AppProvider>
       </AuthProvider>

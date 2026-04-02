@@ -244,6 +244,48 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_requests: {
+        Row: {
+          admin_note: string | null
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          payment_method: string
+          reviewed_by: string | null
+          screenshot_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payment_method?: string
+          reviewed_by?: string | null
+          screenshot_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payment_method?: string
+          reviewed_by?: string | null
+          screenshot_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -323,6 +365,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          generation_reset_at: string
+          generations_used: number
+          id: string
+          monthly_generations: number
+          plan: string
+          started_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          generation_reset_at?: string
+          generations_used?: number
+          id?: string
+          monthly_generations?: number
+          plan?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          generation_reset_at?: string
+          generations_used?: number
+          id?: string
+          monthly_generations?: number
+          plan?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       usage_analytics: {
         Row: {
