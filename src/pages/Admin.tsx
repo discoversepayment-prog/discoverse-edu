@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/MainLayout";
 import {
-  Database, Upload, BarChart3, Layers, Plus, X, CloudUpload, Check,
-  AlertTriangle, Bot, Sparkles, Eye, EyeOff, Save, Trash2, ChevronRight,
-  Users, Shield, Search, ToggleLeft, ToggleRight, Mail, MessageSquare,
+  Database, Upload, BarChart3, Plus, X, CloudUpload, Check,
+  AlertTriangle, Sparkles, Eye, EyeOff, Save, Trash2, ChevronRight,
+  Users, Shield, Search, ToggleLeft, ToggleRight, Mail, Crown, Clock,
+  Image, QrCode, Settings,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,12 +13,12 @@ import { toast } from "sonner";
 
 const adminNav = [
   { icon: Database, label: "Models", path: "/wedisni" },
-  { icon: Bot, label: "AI Agents", path: "/wedisni/agents" },
   { icon: Users, label: "Users", path: "/wedisni/users" },
+  { icon: Crown, label: "Pro Users", path: "/wedisni/pro" },
   { icon: Upload, label: "Upload", path: "/wedisni/upload" },
-  { icon: BarChart3, label: "Analytics", path: "/wedisni/analytics" },
-  { icon: Layers, label: "Cache", path: "/wedisni/cache" },
-  { icon: MessageSquare, label: "Inquiries", path: "/wedisni/inquiries" },
+  { icon: QrCode, label: "Payments", path: "/wedisni/payments" },
+  { icon: Clock, label: "Launch", path: "/wedisni/launch" },
+  { icon: Mail, label: "Inquiries", path: "/wedisni/inquiries" },
 ];
 
 const subjectColors: Record<string, string> = {
@@ -39,13 +40,8 @@ export default function Admin() {
   const navigate = useNavigate();
 
   const handleUnlock = () => {
-    if (pwd === ADMIN_PASSWORD) {
-      setUnlocked(true);
-      sessionStorage.setItem("admin_unlocked", "true");
-      setError(false);
-    } else {
-      setError(true);
-    }
+    if (pwd === ADMIN_PASSWORD) { setUnlocked(true); sessionStorage.setItem("admin_unlocked", "true"); setError(false); }
+    else setError(true);
   };
 
   if (!unlocked) {
@@ -55,26 +51,20 @@ export default function Admin() {
           <AlertTriangle size={32} strokeWidth={1.5} className="text-accent" />
           <h2 className="text-lg font-semibold text-primary-custom">Admin Access</h2>
           <p className="text-[13px] text-secondary-custom">Enter password to continue</p>
-          <input
-            type="password"
-            value={pwd}
-            onChange={e => { setPwd(e.target.value); setError(false); }}
-            onKeyDown={e => e.key === "Enter" && handleUnlock()}
-            placeholder="Password"
-            className="w-64 h-10 rounded-lg border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-          />
+          <input type="password" value={pwd} onChange={e => { setPwd(e.target.value); setError(false); }} onKeyDown={e => e.key === "Enter" && handleUnlock()} placeholder="Password"
+            className="w-64 h-10 rounded-lg border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent" />
           {error && <p className="text-xs text-red-500">Wrong password</p>}
-          <button onClick={handleUnlock} className="px-6 h-9 rounded-lg bg-accent text-white text-sm font-medium">
-            Unlock
-          </button>
+          <button onClick={handleUnlock} className="px-6 h-9 rounded-lg bg-accent text-white text-sm font-medium">Unlock</button>
         </div>
       </MainLayout>
     );
   }
 
-  const currentView = location.pathname.includes("/agents") ? "agents"
-    : location.pathname.includes("/users") ? "users"
+  const currentView = location.pathname.includes("/users") ? "users"
+    : location.pathname.includes("/pro") ? "pro"
     : location.pathname.includes("/upload") ? "upload"
+    : location.pathname.includes("/payments") ? "payments"
+    : location.pathname.includes("/launch") ? "launch"
     : location.pathname.includes("/inquiries") ? "inquiries"
     : "models";
 
@@ -84,38 +74,28 @@ export default function Admin() {
         <div className="hidden md:block w-44 bg-background-secondary border-r border-border p-2.5 space-y-0.5 shrink-0">
           <p className="label-text text-tertiary-custom px-3 py-2">Admin</p>
           {adminNav.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors duration-150 ${
-                location.pathname === item.path ? "bg-accent-subtle text-accent font-medium" : "text-secondary-custom hover:bg-border-subtle"
-              }`}
-            >
-              <item.icon size={15} strokeWidth={1.5} />
-              {item.label}
+            <button key={item.path} onClick={() => navigate(item.path)}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] transition-colors duration-150 ${location.pathname === item.path ? "bg-accent-subtle text-accent font-medium" : "text-secondary-custom hover:bg-border-subtle"}`}>
+              <item.icon size={15} strokeWidth={1.5} />{item.label}
             </button>
           ))}
         </div>
 
         <div className="md:hidden absolute top-0 left-0 right-0 z-10 bg-card border-b border-border flex overflow-x-auto px-2 py-1.5 gap-1">
           {adminNav.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
-                location.pathname === item.path ? "bg-accent text-accent-foreground" : "text-secondary-custom bg-background-secondary"
-              }`}
-            >
-              <item.icon size={12} strokeWidth={1.5} />
-              {item.label}
+            <button key={item.path} onClick={() => navigate(item.path)}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${location.pathname === item.path ? "bg-accent text-accent-foreground" : "text-secondary-custom bg-background-secondary"}`}>
+              <item.icon size={12} strokeWidth={1.5} />{item.label}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-12 md:pt-8 pb-20 md:pb-8">
-          {currentView === "agents" ? <AgentsView /> 
-            : currentView === "users" ? <UsersView />
+          {currentView === "users" ? <UsersView />
+            : currentView === "pro" ? <ProUsersView />
             : currentView === "upload" ? <UploadView />
+            : currentView === "payments" ? <PaymentsView />
+            : currentView === "launch" ? <LaunchView />
             : currentView === "inquiries" ? <InquiriesView />
             : <ModelsTable />}
         </div>
@@ -124,124 +104,321 @@ export default function Admin() {
   );
 }
 
-// ── USERS MANAGEMENT VIEW ──
-function UsersView() {
+// ── PRO USERS VIEW ──
+function ProUsersView() {
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [subs, setSubs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [toggling, setToggling] = useState<string | null>(null);
 
-  useEffect(() => { loadProfiles(); }, []);
+  useEffect(() => { loadData(); }, []);
 
-  const loadProfiles = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setProfiles(data || []);
+  const loadData = async () => {
+    const [{ data: profs }, { data: subscriptions }] = await Promise.all([
+      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+      supabase.from("subscriptions").select("*"),
+    ]);
+    setProfiles(profs || []);
+    setSubs(subscriptions || []);
     setLoading(false);
   };
 
-  const toggleAgentCreation = async (userId: string, current: boolean) => {
-    setToggling(userId);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ can_create_agent: !current })
-      .eq("user_id", userId);
-    if (error) {
-      toast.error("Failed to update");
+  const togglePro = async (userId: string, currentPlan: string) => {
+    const newPlan = currentPlan === "pro" ? "free" : "pro";
+    const newGens = newPlan === "pro" ? 15 : 3;
+    const { data: existing } = await supabase.from("subscriptions").select("id").eq("user_id", userId).maybeSingle();
+    if (existing) {
+      await supabase.from("subscriptions").update({ plan: newPlan, monthly_generations: newGens, status: "active" }).eq("user_id", userId);
     } else {
-      toast.success(!current ? "Agent creation enabled" : "Agent creation revoked");
-      loadProfiles();
+      await supabase.from("subscriptions").insert({ user_id: userId, plan: newPlan, monthly_generations: newGens });
     }
-    setToggling(null);
+    toast.success(newPlan === "pro" ? "User upgraded to Pro" : "User downgraded to Free");
+    loadData();
   };
+
+  const getUserSub = (userId: string) => subs.find(s => s.user_id === userId);
 
   const filtered = profiles.filter(p => {
     const q = search.toLowerCase();
-    return !q || (p.username || "").toLowerCase().includes(q) ||
-      (p.display_name || "").toLowerCase().includes(q) ||
-      (p.user_id || "").toLowerCase().includes(q);
+    return !q || (p.username || "").toLowerCase().includes(q) || (p.display_name || "").toLowerCase().includes(q);
   });
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-[20px] font-semibold text-primary-custom">User Management</h1>
-          <p className="text-[12px] text-tertiary-custom mt-0.5">{profiles.length} registered users</p>
-        </div>
+        <div><h1 className="text-[20px] font-semibold text-primary-custom">Pro User Management</h1>
+          <p className="text-[12px] text-tertiary-custom mt-0.5">Grant or revoke Pro access</p></div>
       </div>
-
       <div className="relative mb-4">
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by username or display name..."
-          className="w-full bg-card border border-border rounded-xl h-10 pl-9 pr-3 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent transition-colors"
-        />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search users..."
+          className="w-full bg-card border border-border rounded-xl h-10 pl-9 pr-3 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent transition-colors" />
       </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" />
-        </div>
-      ) : (
+      {loading ? <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" /></div> : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="bg-background-secondary">
-                  {["User", "Username", "Joined", "Agent Creator", "Actions"].map((h) => (
-                    <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => (
+              <thead><tr className="bg-background-secondary">
+                {["User", "Plan", "Used/Limit", "Status", "Actions"].map(h => <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>)}
+              </tr></thead>
+              <tbody>{filtered.map(p => {
+                const sub = getUserSub(p.user_id);
+                const plan = sub?.plan || "free";
+                return (
                   <tr key={p.id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
+                    <td className="px-4"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0"><Users size={12} className="text-tertiary-custom" /></div><span className="text-[13px] font-medium text-primary-custom">{p.display_name || "—"}</span></div></td>
+                    <td className="px-4"><span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${plan === "pro" ? "bg-yellow-500/10 text-yellow-500" : "bg-secondary text-tertiary-custom"}`}>{plan}</span></td>
+                    <td className="px-4 text-[12px] text-secondary-custom">{sub?.generations_used || 0}/{sub?.monthly_generations || 3}</td>
+                    <td className="px-4"><span className="text-[10px] text-tertiary-custom">{sub?.status || "active"}</span></td>
                     <td className="px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0">
-                          {p.avatar_url ? (
-                            <img src={p.avatar_url} alt="" className="w-full h-full rounded-lg object-cover" />
-                          ) : (
-                            <Users size={12} className="text-tertiary-custom" />
-                          )}
-                        </div>
-                        <span className="text-[13px] font-medium text-primary-custom">{p.display_name || "—"}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 text-[12px] text-secondary-custom font-mono">@{p.username || "—"}</td>
-                    <td className="px-4 text-[11px] text-tertiary-custom">{new Date(p.created_at).toLocaleDateString()}</td>
-                    <td className="px-4">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                        p.can_create_agent ? "bg-secondary text-primary-custom" : "bg-secondary text-tertiary-custom"
-                      }`}>
-                        {p.can_create_agent ? "Yes" : "No"}
-                      </span>
-                    </td>
-                    <td className="px-4">
-                      <button
-                        onClick={() => toggleAgentCreation(p.user_id, p.can_create_agent || false)}
-                        disabled={toggling === p.user_id}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all press ${
-                          p.can_create_agent
-                            ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                            : "bg-secondary text-primary-custom hover:bg-secondary/80"
-                        }`}
-                      >
-                        {p.can_create_agent ? (
-                          <><ToggleRight size={12} /> Revoke</>
-                        ) : (
-                          <><ToggleLeft size={12} /> Grant</>
-                        )}
+                      <button onClick={() => togglePro(p.user_id, plan)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all press ${plan === "pro" ? "bg-destructive/10 text-destructive" : "bg-yellow-500/10 text-yellow-500"}`}>
+                        {plan === "pro" ? <><ToggleRight size={12} /> Revoke Pro</> : <><Crown size={12} /> Make Pro</>}
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PAYMENTS VIEW ──
+function PaymentsView() {
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [qrForm, setQrForm] = useState({ esewa_qr_url: "", khalti_qr_url: "", manual_instructions: "Scan QR code and pay NPR 99" });
+
+  useEffect(() => { loadPayments(); loadQR(); }, []);
+
+  const loadPayments = async () => {
+    const { data } = await supabase.from("payment_requests").select("*").order("created_at", { ascending: false });
+    setPayments(data || []);
+    setLoading(false);
+  };
+
+  const loadQR = async () => {
+    const { data } = await supabase.from("site_settings").select("value").eq("key", "payment_qr").maybeSingle();
+    if (data?.value) setQrForm(data.value as any);
+  };
+
+  const saveQR = async () => {
+    await supabase.from("site_settings").update({ value: qrForm as any, updated_at: new Date().toISOString() }).eq("key", "payment_qr");
+    toast.success("QR settings saved");
+  };
+
+  const handleQRUpload = async (file: File, type: "esewa" | "khalti") => {
+    const path = `qr_${type}_${Date.now()}.${file.name.split(".").pop()}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (error) { toast.error("Upload failed"); return; }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    setQrForm(prev => ({ ...prev, [`${type}_qr_url`]: data.publicUrl }));
+  };
+
+  const approvePayment = async (paymentId: string, userId: string) => {
+    await supabase.from("payment_requests").update({ status: "approved" }).eq("id", paymentId);
+    const { data: existing } = await supabase.from("subscriptions").select("id").eq("user_id", userId).maybeSingle();
+    if (existing) await supabase.from("subscriptions").update({ plan: "pro", monthly_generations: 15, status: "active" }).eq("user_id", userId);
+    else await supabase.from("subscriptions").insert({ user_id: userId, plan: "pro", monthly_generations: 15 });
+    toast.success("Payment approved & user upgraded to Pro!");
+    loadPayments();
+  };
+
+  const rejectPayment = async (paymentId: string) => {
+    await supabase.from("payment_requests").update({ status: "rejected" }).eq("id", paymentId);
+    toast.success("Payment rejected");
+    loadPayments();
+  };
+
+  return (
+    <div>
+      <h1 className="text-[20px] font-semibold text-primary-custom mb-5">Payment Management</h1>
+
+      {/* QR Code Settings */}
+      <div className="bg-card border border-border rounded-xl p-5 mb-6">
+        <h2 className="text-[14px] font-bold text-primary-custom mb-3 flex items-center gap-2"><QrCode size={16} /> QR Code Settings</h2>
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="text-[12px] font-medium text-primary-custom block mb-1">eSewa QR Code</label>
+            {qrForm.esewa_qr_url && <img src={qrForm.esewa_qr_url} alt="eSewa QR" className="w-32 h-32 rounded-lg object-contain bg-white mb-2" />}
+            <label className="flex items-center gap-2 px-3 py-2 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
+              <Image size={14} className="text-tertiary-custom" />
+              <span className="text-[11px] text-secondary-custom">Upload eSewa QR</span>
+              <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleQRUpload(e.target.files[0], "esewa")} />
+            </label>
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-primary-custom block mb-1">Khalti QR Code</label>
+            {qrForm.khalti_qr_url && <img src={qrForm.khalti_qr_url} alt="Khalti QR" className="w-32 h-32 rounded-lg object-contain bg-white mb-2" />}
+            <label className="flex items-center gap-2 px-3 py-2 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
+              <Image size={14} className="text-tertiary-custom" />
+              <span className="text-[11px] text-secondary-custom">Upload Khalti QR</span>
+              <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleQRUpload(e.target.files[0], "khalti")} />
+            </label>
+          </div>
+        </div>
+        <Field label="Instructions" value={qrForm.manual_instructions} onChange={v => setQrForm(prev => ({ ...prev, manual_instructions: v }))} placeholder="Payment instructions..." />
+        <button onClick={saveQR} className="mt-3 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-[12px] font-bold press"><Save size={12} className="inline mr-1" /> Save QR Settings</button>
+      </div>
+
+      {/* Payment Requests */}
+      <h2 className="text-[14px] font-bold text-primary-custom mb-3">Payment Requests ({payments.length})</h2>
+      {loading ? <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" /></div> : payments.length === 0 ? (
+        <div className="flex flex-col items-center py-12 border border-border rounded-xl bg-card"><Mail size={32} strokeWidth={1} className="text-border mb-3" /><p className="text-[14px] text-secondary-custom">No payment requests yet</p></div>
+      ) : (
+        <div className="space-y-3">
+          {payments.map(p => (
+            <div key={p.id} className="bg-card border border-border rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${p.status === "approved" ? "bg-green-500/10 text-green-500" : p.status === "rejected" ? "bg-red-500/10 text-red-500" : "bg-yellow-500/10 text-yellow-500"}`}>{p.status}</span>
+                <span className="text-[10px] text-tertiary-custom">{new Date(p.created_at).toLocaleString()}</span>
+              </div>
+              <p className="text-[13px] font-semibold text-primary-custom">{p.payment_method.toUpperCase()} — {p.currency} {p.amount}</p>
+              <p className="text-[11px] text-tertiary-custom">User: {p.user_id}</p>
+              {p.screenshot_url && (
+                <a href={p.screenshot_url} target="_blank" rel="noopener" className="text-[11px] text-accent underline mt-1 inline-block">View Screenshot</a>
+              )}
+              {p.status === "pending" && (
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => approvePayment(p.id, p.user_id)} className="px-3 py-1.5 bg-green-500/10 text-green-500 rounded-lg text-[11px] font-medium press">Approve & Upgrade</button>
+                  <button onClick={() => rejectPayment(p.id)} className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-[11px] font-medium press">Reject</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── LAUNCH VIEW ──
+function LaunchView() {
+  const [config, setConfig] = useState({ enabled: false, launch_time: "", title: "Something Amazing is Coming", subtitle: "Discoverse AI is launching soon" });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("site_settings").select("value").eq("key", "launch_screen").maybeSingle();
+      if (data?.value) {
+        const val = data.value as any;
+        setConfig({ enabled: val.enabled || false, launch_time: val.launch_time || "", title: val.title || "", subtitle: val.subtitle || "" });
+      }
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  const save = async () => {
+    const value = { enabled: config.enabled, launch_time: config.launch_time || null, title: config.title, subtitle: config.subtitle };
+    await supabase.from("site_settings").update({ value: value as any, updated_at: new Date().toISOString() }).eq("key", "launch_screen");
+    toast.success("Launch settings saved!");
+  };
+
+  // Convert Nepal time input to UTC ISO string
+  const handleTimeChange = (localTime: string) => {
+    // localTime is in format "YYYY-MM-DDTHH:mm"
+    // Nepal is UTC+5:45
+    if (!localTime) { setConfig(prev => ({ ...prev, launch_time: "" })); return; }
+    const [datePart, timePart] = localTime.split("T");
+    const [y, mo, d] = datePart.split("-").map(Number);
+    const [h, m] = timePart.split(":").map(Number);
+    // Create date in Nepal timezone offset
+    const nepalOffset = 5 * 60 + 45; // minutes
+    const utcDate = new Date(Date.UTC(y, mo - 1, d, h, m) - nepalOffset * 60000);
+    setConfig(prev => ({ ...prev, launch_time: utcDate.toISOString() }));
+  };
+
+  // Convert stored UTC to Nepal local time for display
+  const getNepalLocalTime = () => {
+    if (!config.launch_time) return "";
+    const d = new Date(config.launch_time);
+    const nepalOffset = 5 * 60 + 45;
+    const nepalDate = new Date(d.getTime() + nepalOffset * 60000);
+    return nepalDate.toISOString().slice(0, 16);
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" /></div>;
+
+  return (
+    <div className="max-w-lg">
+      <h1 className="text-[20px] font-semibold text-primary-custom mb-5 flex items-center gap-2"><Clock size={20} /> Launch Screen</h1>
+
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[13px] font-bold text-primary-custom">Enable Launch Screen</p>
+            <p className="text-[11px] text-tertiary-custom">Block site with countdown until launch time</p>
+          </div>
+          <button onClick={() => setConfig(prev => ({ ...prev, enabled: !prev.enabled }))}
+            className={`w-12 h-6 rounded-full transition-all ${config.enabled ? "bg-primary" : "bg-secondary"} relative`}>
+            <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all ${config.enabled ? "left-6" : "left-0.5"}`} />
+          </button>
+        </div>
+
+        <div>
+          <label className="text-[12px] font-medium text-primary-custom block mb-1">Launch Time (Nepal Time — UTC+5:45)</label>
+          <input type="datetime-local" value={getNepalLocalTime()} onChange={e => handleTimeChange(e.target.value)}
+            className="w-full bg-card border border-border rounded-xl h-10 px-3 text-[13px] text-primary-custom focus:outline-none focus:border-primary transition-colors" />
+          {config.launch_time && <p className="text-[10px] text-tertiary-custom mt-1">UTC: {config.launch_time}</p>}
+        </div>
+
+        <Field label="Title" value={config.title} onChange={v => setConfig(prev => ({ ...prev, title: v }))} placeholder="Something Amazing is Coming" />
+        <Field label="Subtitle" value={config.subtitle} onChange={v => setConfig(prev => ({ ...prev, subtitle: v }))} placeholder="Discoverse AI is launching soon" />
+
+        <button onClick={save} className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-[13px] font-bold press hover:bg-primary/90">
+          <Save size={14} className="inline mr-1.5" /> Save Launch Settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── USERS VIEW ──
+function UsersView() {
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => { loadProfiles(); }, []);
+
+  const loadProfiles = async () => {
+    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    setProfiles(data || []);
+    setLoading(false);
+  };
+
+  const filtered = profiles.filter(p => {
+    const q = search.toLowerCase();
+    return !q || (p.username || "").toLowerCase().includes(q) || (p.display_name || "").toLowerCase().includes(q);
+  });
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <div><h1 className="text-[20px] font-semibold text-primary-custom">Users</h1><p className="text-[12px] text-tertiary-custom mt-0.5">{profiles.length} registered</p></div>
+      </div>
+      <div className="relative mb-4">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom" />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..."
+          className="w-full bg-card border border-border rounded-xl h-10 pl-9 pr-3 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent transition-colors" />
+      </div>
+      {loading ? <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" /></div> : (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr className="bg-background-secondary">{["User", "Username", "Joined"].map(h => <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>)}</tr></thead>
+              <tbody>{filtered.map(p => (
+                <tr key={p.id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
+                  <td className="px-4"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0">{p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full rounded-lg object-cover" /> : <Users size={12} className="text-tertiary-custom" />}</div><span className="text-[13px] font-medium text-primary-custom">{p.display_name || "—"}</span></div></td>
+                  <td className="px-4 text-[12px] text-secondary-custom font-mono">@{p.username || "—"}</td>
+                  <td className="px-4 text-[11px] text-tertiary-custom">{new Date(p.created_at).toLocaleDateString()}</td>
+                </tr>
+              ))}</tbody>
             </table>
           </div>
         </div>
@@ -254,326 +431,25 @@ function UsersView() {
 function InquiriesView() {
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => { loadInquiries(); }, []);
-
-  const loadInquiries = async () => {
-    const { data } = await supabase
-      .from("contact_inquiries")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setInquiries(data || []);
-    setLoading(false);
-  };
-
+  useEffect(() => { supabase.from("contact_inquiries").select("*").order("created_at", { ascending: false }).then(({ data }) => { setInquiries(data || []); setLoading(false); }); }, []);
   return (
     <div>
-      <div className="mb-5">
-        <h1 className="text-[20px] font-semibold text-primary-custom">Inquiries & Investor Interest</h1>
-        <p className="text-[12px] text-tertiary-custom mt-0.5">{inquiries.length} submissions</p>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" />
-        </div>
-      ) : inquiries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 border border-border rounded-xl bg-card">
-          <Mail size={32} strokeWidth={1} className="text-border mb-3" />
-          <p className="text-[14px] text-secondary-custom">No inquiries yet</p>
-        </div>
+      <h1 className="text-[20px] font-semibold text-primary-custom mb-5">Inquiries ({inquiries.length})</h1>
+      {loading ? <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" /></div> : inquiries.length === 0 ? (
+        <div className="flex flex-col items-center py-16 border border-border rounded-xl bg-card"><Mail size={32} strokeWidth={1} className="text-border mb-3" /><p className="text-[14px] text-secondary-custom">No inquiries yet</p></div>
       ) : (
-        <div className="space-y-3">
-          {inquiries.map((inq) => (
-            <div key={inq.id} className="bg-card border border-border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                  inq.type === "invest" ? "bg-secondary text-primary-custom" : "bg-secondary text-tertiary-custom"
-                }`}>
-                  {inq.type}
-                </span>
-                <span className="text-[10px] text-tertiary-custom">{new Date(inq.created_at).toLocaleString()}</span>
-              </div>
-              <p className="text-[13px] font-semibold text-primary-custom">{inq.name}</p>
-              <p className="text-[11px] text-secondary-custom">{inq.email}</p>
-              {inq.message && <p className="text-[12px] text-secondary-custom mt-2 border-t border-border pt-2">{inq.message}</p>}
+        <div className="space-y-3">{inquiries.map(inq => (
+          <div key={inq.id} className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${inq.type === "invest" ? "bg-secondary text-primary-custom" : "bg-secondary text-tertiary-custom"}`}>{inq.type}</span>
+              <span className="text-[10px] text-tertiary-custom">{new Date(inq.created_at).toLocaleString()}</span>
             </div>
-          ))}
-        </div>
+            <p className="text-[13px] font-semibold text-primary-custom">{inq.name}</p>
+            <p className="text-[11px] text-secondary-custom">{inq.email}</p>
+            {inq.message && <p className="text-[12px] text-secondary-custom mt-2 border-t border-border pt-2">{inq.message}</p>}
+          </div>
+        ))}</div>
       )}
-    </div>
-  );
-}
-
-// ── AI AGENTS VIEW ──
-function AgentsView() {
-  const [agents, setAgents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<any | null>(null);
-
-  useEffect(() => { loadAgents(); }, []);
-
-  const loadAgents = async () => {
-    const { data } = await supabase.from("ai_agents").select("*").order("created_at", { ascending: false });
-    setAgents(data || []);
-    setLoading(false);
-  };
-
-  const createNew = () => {
-    setEditing({
-      name: "",
-      slug: "",
-      personality: "warm, friendly Nepali science guide who explains things like a close friend",
-      system_prompt: `You are a warm, experienced Nepali science guide. Your style:
-- Talk like a close friend, not a teacher
-- Use Romanized Nepali naturally mixed with English science terms
-- Be encouraging: "Ramro question!" "Sahi sochirachau!"
-- Keep answers SHORT: 2-3 sentences max
-- Point to specific things: "Yo part herau — yo mitochondria ho"
-- Use analogies from daily Nepali life
-- Never sound like ChatGPT or a textbook
-- End with a follow-up question to keep them curious`,
-      greeting_message: "Namaste! 🙏 Ma timro science companion ho. Aaja k explore garne? Heart, DNA, Solar System — jun topic man lagcha bhanau!",
-      language_style: "romanized_nepali",
-      knowledge_areas: [],
-      research_papers: [],
-      voice_id: "EXAVITQu4vr4xnSDxMaL",
-      is_published: false,
-    });
-  };
-
-  const saveAgent = async (agent: any) => {
-    const slug = agent.slug || agent.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    const payload = { ...agent, slug };
-    delete payload.id;
-    delete payload.created_at;
-    delete payload.updated_at;
-
-    if (agent.id) {
-      await supabase.from("ai_agents").update(payload).eq("id", agent.id);
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from("ai_agents").insert({ ...payload, created_by: user?.id });
-    }
-    setEditing(null);
-    loadAgents();
-  };
-
-  const deleteAgent = async (id: string) => {
-    await supabase.from("ai_agents").delete().eq("id", id);
-    loadAgents();
-  };
-
-  const togglePublish = async (id: string, current: boolean) => {
-    await supabase.from("ai_agents").update({ is_published: !current }).eq("id", id);
-    loadAgents();
-  };
-
-  if (editing) {
-    return <AgentEditor agent={editing} onSave={saveAgent} onCancel={() => setEditing(null)} />;
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-[20px] font-semibold text-primary-custom">AI Agents</h1>
-          <p className="text-[12px] text-tertiary-custom mt-0.5">Create personalized learning companions</p>
-        </div>
-        <button onClick={createNew} className="flex items-center gap-1.5 bg-accent text-accent-foreground px-4 py-2 rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97]">
-          <Plus size={15} strokeWidth={1.5} /> New Agent
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" />
-        </div>
-      ) : agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center border border-border rounded-xl bg-card">
-          <Bot size={36} strokeWidth={1} className="text-border mb-3" />
-          <p className="text-[14px] text-secondary-custom">No AI agents yet</p>
-          <p className="text-[12px] text-tertiary-custom mt-1">Create your first personalized learning companion</p>
-          <button onClick={createNew} className="mt-4 flex items-center gap-1.5 bg-accent text-accent-foreground px-4 py-2 rounded-xl text-[13px] font-medium">
-            <Sparkles size={14} /> Create Agent
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          {agents.map((agent) => (
-            <div key={agent.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
-                <Bot size={20} className="text-accent" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-[14px] font-semibold text-primary-custom truncate">{agent.name}</h3>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${agent.is_published ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
-                    {agent.is_published ? "Published" : "Draft"}
-                  </span>
-                </div>
-                <p className="text-[12px] text-secondary-custom mt-0.5 line-clamp-2">{agent.personality}</p>
-                <div className="flex gap-1.5 mt-2 flex-wrap">
-                  {(agent.knowledge_areas || []).slice(0, 3).map((area: string) => (
-                    <span key={area} className="text-[10px] bg-background-secondary text-tertiary-custom px-2 py-0.5 rounded-full">{area}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="flex flex-col gap-1 shrink-0">
-                <button onClick={() => togglePublish(agent.id, agent.is_published)} className="p-1.5 hover:bg-background-secondary rounded-lg transition-colors" title={agent.is_published ? "Unpublish" : "Publish"}>
-                  {agent.is_published ? <EyeOff size={14} className="text-tertiary-custom" /> : <Eye size={14} className="text-accent" />}
-                </button>
-                <button onClick={() => setEditing(agent)} className="p-1.5 hover:bg-background-secondary rounded-lg transition-colors">
-                  <ChevronRight size={14} className="text-tertiary-custom" />
-                </button>
-                <button onClick={() => deleteAgent(agent.id)} className="p-1.5 hover:bg-destructive/10 rounded-lg transition-colors">
-                  <Trash2 size={14} className="text-tertiary-custom hover:text-destructive" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AgentEditor({ agent, onSave, onCancel }: { agent: any; onSave: (a: any) => void; onCancel: () => void }) {
-  const [form, setForm] = useState(agent);
-  const [knowledgeInput, setKnowledgeInput] = useState("");
-  const [paperInput, setPaperInput] = useState("");
-
-  const update = (key: string, val: any) => setForm((prev: any) => ({ ...prev, [key]: val }));
-
-  const addKnowledge = () => {
-    if (!knowledgeInput.trim()) return;
-    update("knowledge_areas", [...(form.knowledge_areas || []), knowledgeInput.trim()]);
-    setKnowledgeInput("");
-  };
-
-  const addPaper = () => {
-    if (!paperInput.trim()) return;
-    update("research_papers", [...(form.research_papers || []), paperInput.trim()]);
-    setPaperInput("");
-  };
-
-  return (
-    <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-[20px] font-semibold text-primary-custom">{agent.id ? "Edit Agent" : "Create Agent"}</h1>
-        <button onClick={onCancel} className="text-[13px] text-secondary-custom hover:text-primary-custom">Cancel</button>
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Agent Name" value={form.name} onChange={(v) => update("name", v)} placeholder="e.g. Saathi (साथी)" />
-          <Field label="Slug" value={form.slug} onChange={(v) => update("slug", v)} placeholder="auto-generated" helper="URL-friendly name" />
-        </div>
-
-        <Field label="Personality" value={form.personality} onChange={(v) => update("personality", v)} placeholder="warm, friendly Nepali guide..." />
-
-        <div>
-          <label className="text-[12px] font-medium text-primary-custom block mb-1">System Prompt</label>
-          <textarea
-            value={form.system_prompt}
-            onChange={(e) => update("system_prompt", e.target.value)}
-            rows={8}
-            className="w-full bg-card border border-border rounded-xl px-3 py-2.5 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent transition-colors resize-none"
-            placeholder="Define the agent's behavior, tone, and expertise..."
-          />
-        </div>
-
-        <div>
-          <label className="text-[12px] font-medium text-primary-custom block mb-1">Greeting Message</label>
-          <textarea
-            value={form.greeting_message}
-            onChange={(e) => update("greeting_message", e.target.value)}
-            rows={3}
-            className="w-full bg-card border border-border rounded-xl px-3 py-2.5 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent transition-colors resize-none"
-          />
-        </div>
-
-        <div>
-          <label className="text-[12px] font-medium text-primary-custom block mb-1">Language Style</label>
-          <select
-            value={form.language_style}
-            onChange={(e) => update("language_style", e.target.value)}
-            className="w-full bg-card border border-border rounded-xl h-10 px-3 text-[13px] text-primary-custom focus:outline-none focus:border-accent"
-          >
-            <option value="romanized_nepali">Romanized Nepali (default)</option>
-            <option value="english">English</option>
-            <option value="hindi">Hindi (Devanagari)</option>
-            <option value="mixed">Mixed English + Romanized Nepali</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-[12px] font-medium text-primary-custom block mb-1">Knowledge Areas</label>
-          <div className="flex gap-1.5 flex-wrap mb-2">
-            {(form.knowledge_areas || []).map((area: string, i: number) => (
-              <span key={i} className="text-[11px] bg-accent/10 text-accent px-2.5 py-1 rounded-full flex items-center gap-1">
-                {area}
-                <button onClick={() => update("knowledge_areas", form.knowledge_areas.filter((_: string, j: number) => j !== i))}>
-                  <X size={10} />
-                </button>
-              </span>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              value={knowledgeInput}
-              onChange={(e) => setKnowledgeInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKnowledge())}
-              placeholder="e.g. Biology, Physics..."
-              className="flex-1 bg-card border border-border rounded-xl h-9 px-3 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent"
-            />
-            <button onClick={addKnowledge} className="px-3 bg-background-secondary rounded-xl text-[12px] text-secondary-custom hover:text-primary-custom">Add</button>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-[12px] font-medium text-primary-custom block mb-1">Research Papers / References</label>
-          <div className="space-y-1 mb-2">
-            {(form.research_papers || []).map((paper: string, i: number) => (
-              <div key={i} className="text-[11px] bg-card border border-border px-3 py-1.5 rounded-lg flex items-center justify-between">
-                <span className="text-secondary-custom truncate">{paper}</span>
-                <button onClick={() => update("research_papers", form.research_papers.filter((_: string, j: number) => j !== i))}>
-                  <X size={10} className="text-tertiary-custom" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              value={paperInput}
-              onChange={(e) => setPaperInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPaper())}
-              placeholder="Paste paper URL or title..."
-              className="flex-1 bg-card border border-border rounded-xl h-9 px-3 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-accent"
-            />
-            <button onClick={addPaper} className="px-3 bg-background-secondary rounded-xl text-[12px] text-secondary-custom hover:text-primary-custom">Add</button>
-          </div>
-        </div>
-
-        <Field label="ElevenLabs Voice ID" value={form.voice_id || ""} onChange={(v) => update("voice_id", v)} placeholder="EXAVITQu4vr4xnSDxMaL" helper="Sarah (warm female) is default." />
-
-        <div className="flex gap-2.5 pt-3">
-          <button
-            onClick={() => onSave({ ...form, is_published: false })}
-            disabled={!form.name || !form.system_prompt}
-            className="px-5 py-2.5 border border-border rounded-xl text-[13px] font-medium text-secondary-custom hover:bg-background-secondary disabled:opacity-40 flex items-center gap-1.5"
-          >
-            <Save size={14} /> Save Draft
-          </button>
-          <button
-            onClick={() => onSave({ ...form, is_published: true })}
-            disabled={!form.name || !form.system_prompt}
-            className="px-5 py-2.5 bg-accent text-accent-foreground rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97] disabled:opacity-40 flex items-center gap-1.5"
-          >
-            <Sparkles size={14} /> Publish
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -583,62 +459,30 @@ function ModelsTable() {
   const [models, setModels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
-  useEffect(() => { loadModels(); }, []);
-  const loadModels = async () => {
-    const { data } = await supabase.from("models").select("*").order("created_at", { ascending: false });
-    setModels(data || []);
-    setLoading(false);
-  };
-  const deleteModel = async (id: string) => {
-    await supabase.from("models").delete().eq("id", id);
-    setModels(models.filter((m) => m.id !== id));
-  };
+  useEffect(() => { supabase.from("models").select("*").order("created_at", { ascending: false }).then(({ data }) => { setModels(data || []); setLoading(false); }); }, []);
+  const deleteModel = async (id: string) => { await supabase.from("models").delete().eq("id", id); setModels(models.filter(m => m.id !== id)); };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-[20px] font-semibold text-primary-custom">Models</h1>
-          <p className="text-[12px] text-tertiary-custom mt-0.5">{models.length} models in database</p>
-        </div>
-        <button onClick={() => navigate("/wedisni/upload")} className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97]">
-          <Plus size={15} strokeWidth={1.5} /> Upload
-        </button>
+        <div><h1 className="text-[20px] font-semibold text-primary-custom">Models</h1><p className="text-[12px] text-tertiary-custom mt-0.5">{models.length} in database</p></div>
+        <button onClick={() => navigate("/wedisni/upload")} className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97]"><Plus size={15} strokeWidth={1.5} /> Upload</button>
       </div>
-      {loading ? (
-        <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" /></div>
-      ) : models.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center border border-border rounded-xl bg-card">
-          <Database size={32} strokeWidth={1} className="text-border mb-3" />
-          <p className="text-[14px] text-secondary-custom">No models uploaded yet</p>
-        </div>
+      {loading ? <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-border border-t-accent rounded-full animate-spin" /></div> : models.length === 0 ? (
+        <div className="flex flex-col items-center py-16 border border-border rounded-xl bg-card"><Database size={32} strokeWidth={1} className="text-border mb-3" /><p className="text-[14px] text-secondary-custom">No models yet</p></div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-background-secondary">
-                  {["Name", "Subject", "Tier", "Viral", "Status", ""].map((h) => (
-                    <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {models.map((m) => (
-                  <tr key={m.id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
-                    <td className="px-4 text-[13px] font-medium text-primary-custom">{m.name}</td>
-                    <td className="px-4"><span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${subjectColors[m.subject] || "bg-muted text-secondary-custom"}`}>{m.subject}</span></td>
-                    <td className="px-4 text-[12px] text-secondary-custom">T{m.tier}</td>
-                    <td className="px-4 text-[12px] text-secondary-custom">{m.viral_score}</td>
-                    <td className="px-4"><span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${m.status === "published" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>{m.status}</span></td>
-                    <td className="px-4"><button onClick={() => deleteModel(m.id)} className="p-1 hover:bg-destructive/10 rounded transition-colors"><X size={14} strokeWidth={1.5} className="text-tertiary-custom hover:text-destructive" /></button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <div className="bg-card border border-border rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full">
+          <thead><tr className="bg-background-secondary">{["Name", "Subject", "Tier", "Status", ""].map(h => <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>)}</tr></thead>
+          <tbody>{models.map(m => (
+            <tr key={m.id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
+              <td className="px-4 text-[13px] font-medium text-primary-custom">{m.name}</td>
+              <td className="px-4"><span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${subjectColors[m.subject] || "bg-muted text-secondary-custom"}`}>{m.subject}</span></td>
+              <td className="px-4 text-[12px] text-secondary-custom">T{m.tier}</td>
+              <td className="px-4"><span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${m.status === "published" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>{m.status}</span></td>
+              <td className="px-4"><button onClick={() => deleteModel(m.id)} className="p-1 hover:bg-destructive/10 rounded transition-colors"><X size={14} strokeWidth={1.5} className="text-tertiary-custom hover:text-destructive" /></button></td>
+            </tr>
+          ))}</tbody>
+        </table></div></div>
       )}
     </div>
   );
@@ -664,12 +508,13 @@ function UploadView() {
     const { error: insertError } = await supabase.from("models").insert({
       name: form.name, slug, subject: form.subject, tier: form.tier, viral_score: form.viral_score,
       file_url: publicUrl, file_format: ext, file_size_bytes: file.size,
-      keywords_en: form.keywords_en.split(",").map((k) => k.trim()).filter(Boolean),
-      keywords_hi: form.keywords_hi.split(",").map((k) => k.trim()).filter(Boolean),
-      named_parts: form.named_parts.split(",").map((k) => k.trim()).filter(Boolean),
+      keywords_en: form.keywords_en.split(",").map(k => k.trim()).filter(Boolean),
+      keywords_hi: form.keywords_hi.split(",").map(k => k.trim()).filter(Boolean),
+      named_parts: form.named_parts.split(",").map(k => k.trim()).filter(Boolean),
       source: form.source || null, license: form.license || null, status, uploaded_by: user?.id,
     });
-    if (insertError) { alert("Save failed: " + insertError.message); } else { navigate("/wedisni"); }
+    if (insertError) alert("Save failed: " + insertError.message);
+    else navigate("/wedisni");
     setUploading(false);
   };
 
@@ -677,25 +522,18 @@ function UploadView() {
     <div className="max-w-xl">
       <h1 className="text-[20px] font-semibold text-primary-custom mb-5">Upload Model</h1>
       <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-10 cursor-pointer transition-colors ${file ? "border-accent bg-accent-subtle" : "border-border hover:border-accent"}`}>
-        <input type="file" accept=".glb,.gltf,.fbx,.obj" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-        {file ? (<><Check size={28} strokeWidth={1.5} className="text-accent mb-2" /><p className="text-[13px] font-medium text-primary-custom">{file.name}</p><p className="text-[11px] text-tertiary-custom mt-0.5">{(file.size / 1024 / 1024).toFixed(1)} MB</p></>) : (<><CloudUpload size={28} strokeWidth={1.5} className="text-tertiary-custom mb-2" /><p className="text-[13px] text-secondary-custom">Drop 3D model or click to browse</p></>)}
+        <input type="file" accept=".glb,.gltf,.fbx,.obj" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
+        {file ? <><Check size={28} strokeWidth={1.5} className="text-accent mb-2" /><p className="text-[13px] font-medium text-primary-custom">{file.name}</p></> : <><CloudUpload size={28} strokeWidth={1.5} className="text-tertiary-custom mb-2" /><p className="text-[13px] text-secondary-custom">Drop 3D model or click to browse</p></>}
       </label>
       <div className="mt-6 space-y-4">
-        <Field label="Model Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="e.g. Human Heart" />
+        <Field label="Model Name" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="e.g. Human Heart" />
         <div>
           <label className="text-[12px] font-medium text-primary-custom block mb-1">Subject</label>
-          <select value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="w-full bg-card border border-border rounded-xl h-10 px-3 text-[13px] text-primary-custom focus:outline-none focus:border-primary">
-            {["biology", "physics", "chemistry", "mathematics", "geography", "astronomy", "engineering", "vehicles"].map((s) => (<option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>))}
+          <select value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} className="w-full bg-card border border-border rounded-xl h-10 px-3 text-[13px] text-primary-custom focus:outline-none focus:border-primary">
+            {["biology", "physics", "chemistry", "mathematics", "geography", "astronomy", "engineering"].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Tier (1-3)" value={String(form.tier)} onChange={(v) => setForm({ ...form, tier: Number(v) || 2 })} type="number" />
-          <Field label="Viral Score" value={String(form.viral_score)} onChange={(v) => setForm({ ...form, viral_score: Number(v) || 50 })} type="number" />
-        </div>
-        <Field label="English Keywords" value={form.keywords_en} onChange={(v) => setForm({ ...form, keywords_en: v })} placeholder="heart, cardiac" helper="Comma-separated" />
-        <Field label="Hindi Keywords" value={form.keywords_hi} onChange={(v) => setForm({ ...form, keywords_hi: v })} placeholder="हृदय, दिल" />
-        <Field label="Named Parts" value={form.named_parts} onChange={(v) => setForm({ ...form, named_parts: v })} placeholder="left_ventricle, aorta" helper="Must match mesh names" />
-        <Field label="Source" value={form.source} onChange={(v) => setForm({ ...form, source: v })} placeholder="NIH, Sketchfab" />
+        <Field label="Named Parts" value={form.named_parts} onChange={v => setForm({ ...form, named_parts: v })} placeholder="left_ventricle, aorta" helper="Must match mesh names" />
         <div className="flex gap-2.5 pt-3">
           <button onClick={() => handleUpload("draft")} disabled={uploading || !file || !form.name} className="px-5 py-2.5 border border-border rounded-xl text-[13px] font-medium text-secondary-custom hover:bg-background-secondary disabled:opacity-40">Save Draft</button>
           <button onClick={() => handleUpload("published")} disabled={uploading || !file || !form.name} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-[13px] font-medium hover:opacity-90 active:scale-[0.97] disabled:opacity-40">{uploading ? "Uploading..." : "Publish"}</button>
@@ -709,7 +547,7 @@ function Field({ label, value, onChange, placeholder, helper, type = "text" }: {
   return (
     <div>
       <label className="text-[12px] font-medium text-primary-custom block mb-1">{label}</label>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         className="w-full bg-card border border-border rounded-xl h-10 px-3 text-[13px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary transition-colors" />
       {helper && <p className="text-[11px] text-tertiary-custom mt-0.5">{helper}</p>}
     </div>
