@@ -15,11 +15,11 @@ serve(async (req) => {
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
     if (!ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_API_KEY is not configured");
 
-    // Use a clear, warm voice — Sarah (female) or Roger (male)
-    const selectedVoice = voiceId || "EXAVITQu4vr4xnSDxMaL"; // Sarah - warm and clear
+    // Use Sarah voice - warm, clear, supports multilingual including Nepali/Hindi
+    const selectedVoice = voiceId || "EXAVITQu4vr4xnSDxMaL";
 
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice}?output_format=mp3_44100_128`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice}?output_format=mp3_22050_32`,
       {
         method: "POST",
         headers: {
@@ -30,11 +30,11 @@ serve(async (req) => {
           text,
           model_id: "eleven_multilingual_v2",
           voice_settings: {
-            stability: 0.65,
-            similarity_boost: 0.8,
-            style: 0.35,
+            stability: 0.6,
+            similarity_boost: 0.75,
+            style: 0.3,
             use_speaker_boost: true,
-            speed: 1.05,
+            speed: 1.0,
           },
         }),
       },
@@ -44,32 +44,24 @@ serve(async (req) => {
       const errText = await response.text();
       console.error("ElevenLabs error:", response.status, errText);
 
-      if (response.status === 401) {
-        throw new Error("ElevenLabs API key is invalid");
-      }
+      if (response.status === 401) throw new Error("ElevenLabs API key is invalid");
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Voice generation rate limited. Try again shortly." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        return new Response(JSON.stringify({ error: "Rate limited" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
       throw new Error(`ElevenLabs API error: ${response.status}`);
     }
 
     const audioBuffer = await response.arrayBuffer();
 
     return new Response(audioBuffer, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "audio/mpeg",
-      },
+      headers: { ...corsHeaders, "Content-Type": "audio/mpeg" },
     });
   } catch (e) {
     console.error("elevenlabs-tts error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

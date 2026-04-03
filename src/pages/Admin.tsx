@@ -118,8 +118,15 @@ function ProUsersView() {
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("subscriptions").select("*"),
     ]);
+    
+    // Merge: show all users from subscriptions, match with profiles
+    const subUsers = (subscriptions || []).map(sub => {
+      const profile = (profs || []).find(p => p.user_id === sub.user_id);
+      return { ...sub, profile };
+    });
+    
     setProfiles(profs || []);
-    setSubs(subscriptions || []);
+    setSubs(subUsers);
     setLoading(false);
   };
 
@@ -136,18 +143,19 @@ function ProUsersView() {
     loadData();
   };
 
-  const getUserSub = (userId: string) => subs.find(s => s.user_id === userId);
-
-  const filtered = profiles.filter(p => {
+  const filtered = subs.filter(s => {
     const q = search.toLowerCase();
-    return !q || (p.username || "").toLowerCase().includes(q) || (p.display_name || "").toLowerCase().includes(q);
+    if (!q) return true;
+    const name = s.profile?.display_name || "";
+    const uname = s.profile?.username || "";
+    return name.toLowerCase().includes(q) || uname.toLowerCase().includes(q) || s.user_id.includes(q);
   });
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
         <div><h1 className="text-[20px] font-semibold text-primary-custom">Pro User Management</h1>
-          <p className="text-[12px] text-tertiary-custom mt-0.5">Grant or revoke Pro access</p></div>
+          <p className="text-[12px] text-tertiary-custom mt-0.5">{subs.length} total users</p></div>
       </div>
       <div className="relative mb-4">
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom" />
@@ -161,17 +169,17 @@ function ProUsersView() {
               <thead><tr className="bg-background-secondary">
                 {["User", "Plan", "Used/Limit", "Status", "Actions"].map(h => <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>)}
               </tr></thead>
-              <tbody>{filtered.map(p => {
-                const sub = getUserSub(p.user_id);
-                const plan = sub?.plan || "free";
+              <tbody>{filtered.map(s => {
+                const plan = s.plan || "free";
+                const displayName = s.profile?.display_name || s.user_id.slice(0, 8) + "...";
                 return (
-                  <tr key={p.id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
-                    <td className="px-4"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0"><Users size={12} className="text-tertiary-custom" /></div><span className="text-[13px] font-medium text-primary-custom">{p.display_name || "—"}</span></div></td>
+                  <tr key={s.user_id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
+                    <td className="px-4"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0"><Users size={12} className="text-tertiary-custom" /></div><div><span className="text-[13px] font-medium text-primary-custom block">{displayName}</span>{s.profile?.username && <span className="text-[10px] text-tertiary-custom">@{s.profile.username}</span>}</div></div></td>
                     <td className="px-4"><span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${plan === "pro" ? "bg-yellow-500/10 text-yellow-500" : "bg-secondary text-tertiary-custom"}`}>{plan}</span></td>
-                    <td className="px-4 text-[12px] text-secondary-custom">{sub?.generations_used || 0}/{sub?.monthly_generations || 3}</td>
-                    <td className="px-4"><span className="text-[10px] text-tertiary-custom">{sub?.status || "active"}</span></td>
+                    <td className="px-4 text-[12px] text-secondary-custom">{s.generations_used || 0}/{s.monthly_generations || 3}</td>
+                    <td className="px-4"><span className="text-[10px] text-tertiary-custom">{s.status || "active"}</span></td>
                     <td className="px-4">
-                      <button onClick={() => togglePro(p.user_id, plan)}
+                      <button onClick={() => togglePro(s.user_id, plan)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all press ${plan === "pro" ? "bg-destructive/10 text-destructive" : "bg-yellow-500/10 text-yellow-500"}`}>
                         {plan === "pro" ? <><ToggleRight size={12} /> Revoke Pro</> : <><Crown size={12} /> Make Pro</>}
                       </button>
@@ -192,6 +200,7 @@ function PaymentsView() {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [qrForm, setQrForm] = useState({ esewa_qr_url: "", khalti_qr_url: "", manual_instructions: "Scan QR code and pay NPR 99" });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadPayments(); loadQR(); }, []);
 
@@ -203,12 +212,31 @@ function PaymentsView() {
 
   const loadQR = async () => {
     const { data } = await supabase.from("site_settings").select("value").eq("key", "payment_qr").maybeSingle();
-    if (data?.value) setQrForm(data.value as any);
+    if (data?.value) {
+      const val = data.value as any;
+      setQrForm({
+        esewa_qr_url: val.esewa_qr_url || "",
+        khalti_qr_url: val.khalti_qr_url || "",
+        manual_instructions: val.manual_instructions || "Scan QR code and pay NPR 99",
+      });
+    }
   };
 
   const saveQR = async () => {
-    await supabase.from("site_settings").update({ value: qrForm as any, updated_at: new Date().toISOString() }).eq("key", "payment_qr");
-    toast.success("QR settings saved");
+    setSaving(true);
+    const value = {
+      esewa_qr_url: qrForm.esewa_qr_url || null,
+      khalti_qr_url: qrForm.khalti_qr_url || null,
+      manual_instructions: qrForm.manual_instructions,
+    };
+    const { error } = await supabase.from("site_settings").update({ value: value as any, updated_at: new Date().toISOString() }).eq("key", "payment_qr");
+    if (error) {
+      console.error("QR save error:", error);
+      toast.error("Failed to save QR settings");
+    } else {
+      toast.success("QR settings saved!");
+    }
+    setSaving(false);
   };
 
   const handleQRUpload = async (file: File, type: "esewa" | "khalti") => {
@@ -216,7 +244,17 @@ function PaymentsView() {
     const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
     if (error) { toast.error("Upload failed"); return; }
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    setQrForm(prev => ({ ...prev, [`${type}_qr_url`]: data.publicUrl }));
+    const newQrForm = { ...qrForm, [`${type}_qr_url`]: data.publicUrl };
+    setQrForm(newQrForm);
+    
+    // Auto-save after upload
+    const value = {
+      esewa_qr_url: type === "esewa" ? data.publicUrl : (qrForm.esewa_qr_url || null),
+      khalti_qr_url: type === "khalti" ? data.publicUrl : (qrForm.khalti_qr_url || null),
+      manual_instructions: qrForm.manual_instructions,
+    };
+    await supabase.from("site_settings").update({ value: value as any, updated_at: new Date().toISOString() }).eq("key", "payment_qr");
+    toast.success(`${type === "esewa" ? "eSewa" : "Khalti"} QR uploaded & saved!`);
   };
 
   const approvePayment = async (paymentId: string, userId: string) => {
@@ -262,7 +300,9 @@ function PaymentsView() {
           </div>
         </div>
         <Field label="Instructions" value={qrForm.manual_instructions} onChange={v => setQrForm(prev => ({ ...prev, manual_instructions: v }))} placeholder="Payment instructions..." />
-        <button onClick={saveQR} className="mt-3 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-[12px] font-bold press"><Save size={12} className="inline mr-1" /> Save QR Settings</button>
+        <button onClick={saveQR} disabled={saving} className="mt-3 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-[12px] font-bold press disabled:opacity-50">
+          <Save size={12} className="inline mr-1" /> {saving ? "Saving..." : "Save QR Settings"}
+        </button>
       </div>
 
       {/* Payment Requests */}
@@ -278,7 +318,7 @@ function PaymentsView() {
                 <span className="text-[10px] text-tertiary-custom">{new Date(p.created_at).toLocaleString()}</span>
               </div>
               <p className="text-[13px] font-semibold text-primary-custom">{p.payment_method.toUpperCase()} — {p.currency} {p.amount}</p>
-              <p className="text-[11px] text-tertiary-custom">User: {p.user_id}</p>
+              <p className="text-[11px] text-tertiary-custom">User: {p.user_id.slice(0, 12)}...</p>
               {p.screenshot_url && (
                 <a href={p.screenshot_url} target="_blank" rel="noopener" className="text-[11px] text-accent underline mt-1 inline-block">View Screenshot</a>
               )}
@@ -300,10 +340,11 @@ function PaymentsView() {
 function LaunchView() {
   const [config, setConfig] = useState({ enabled: false, launch_time: "", title: "Something Amazing is Coming", subtitle: "Discoverse AI is launching soon" });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("site_settings").select("value").eq("key", "launch_screen").maybeSingle();
+      const { data } = await supabase.from("site_settings").select("*").eq("key", "launch_screen").maybeSingle();
       if (data?.value) {
         const val = data.value as any;
         setConfig({ enabled: val.enabled || false, launch_time: val.launch_time || "", title: val.title || "", subtitle: val.subtitle || "" });
@@ -314,26 +355,44 @@ function LaunchView() {
   }, []);
 
   const save = async () => {
+    setSaving(true);
     const value = { enabled: config.enabled, launch_time: config.launch_time || null, title: config.title, subtitle: config.subtitle };
-    await supabase.from("site_settings").update({ value: value as any, updated_at: new Date().toISOString() }).eq("key", "launch_screen");
+    
+    // Use upsert pattern - try update first, if no rows affected, insert
+    const { data: existing } = await supabase.from("site_settings").select("id").eq("key", "launch_screen").maybeSingle();
+    
+    if (existing) {
+      const { error } = await supabase.from("site_settings").update({ value: value as any, updated_at: new Date().toISOString() }).eq("key", "launch_screen");
+      if (error) {
+        console.error("Launch save error:", error);
+        toast.error("Failed to save: " + error.message);
+        setSaving(false);
+        return;
+      }
+    } else {
+      const { error } = await supabase.from("site_settings").insert({ key: "launch_screen", value: value as any });
+      if (error) {
+        console.error("Launch insert error:", error);
+        toast.error("Failed to save: " + error.message);
+        setSaving(false);
+        return;
+      }
+    }
+    
     toast.success("Launch settings saved!");
+    setSaving(false);
   };
 
-  // Convert Nepal time input to UTC ISO string
   const handleTimeChange = (localTime: string) => {
-    // localTime is in format "YYYY-MM-DDTHH:mm"
-    // Nepal is UTC+5:45
     if (!localTime) { setConfig(prev => ({ ...prev, launch_time: "" })); return; }
     const [datePart, timePart] = localTime.split("T");
     const [y, mo, d] = datePart.split("-").map(Number);
     const [h, m] = timePart.split(":").map(Number);
-    // Create date in Nepal timezone offset
-    const nepalOffset = 5 * 60 + 45; // minutes
+    const nepalOffset = 5 * 60 + 45;
     const utcDate = new Date(Date.UTC(y, mo - 1, d, h, m) - nepalOffset * 60000);
     setConfig(prev => ({ ...prev, launch_time: utcDate.toISOString() }));
   };
 
-  // Convert stored UTC to Nepal local time for display
   const getNepalLocalTime = () => {
     if (!config.launch_time) return "";
     const d = new Date(config.launch_time);
@@ -360,19 +419,30 @@ function LaunchView() {
           </button>
         </div>
 
-        <div>
-          <label className="text-[12px] font-medium text-primary-custom block mb-1">Launch Time (Nepal Time — UTC+5:45)</label>
-          <input type="datetime-local" value={getNepalLocalTime()} onChange={e => handleTimeChange(e.target.value)}
-            className="w-full bg-card border border-border rounded-xl h-10 px-3 text-[13px] text-primary-custom focus:outline-none focus:border-primary transition-colors" />
-          {config.launch_time && <p className="text-[10px] text-tertiary-custom mt-1">UTC: {config.launch_time}</p>}
-        </div>
+        {config.enabled && (
+          <>
+            <div>
+              <label className="text-[12px] font-medium text-primary-custom block mb-1">Launch Time (Nepal Time — UTC+5:45)</label>
+              <input type="datetime-local" value={getNepalLocalTime()} onChange={e => handleTimeChange(e.target.value)}
+                className="w-full bg-card border border-border rounded-xl h-10 px-3 text-[13px] text-primary-custom focus:outline-none focus:border-primary transition-colors" />
+              {config.launch_time && <p className="text-[10px] text-tertiary-custom mt-1">UTC: {config.launch_time}</p>}
+            </div>
 
-        <Field label="Title" value={config.title} onChange={v => setConfig(prev => ({ ...prev, title: v }))} placeholder="Something Amazing is Coming" />
-        <Field label="Subtitle" value={config.subtitle} onChange={v => setConfig(prev => ({ ...prev, subtitle: v }))} placeholder="Discoverse AI is launching soon" />
+            <Field label="Title" value={config.title} onChange={v => setConfig(prev => ({ ...prev, title: v }))} placeholder="Something Amazing is Coming" />
+            <Field label="Subtitle" value={config.subtitle} onChange={v => setConfig(prev => ({ ...prev, subtitle: v }))} placeholder="Discoverse AI is launching soon" />
+          </>
+        )}
 
-        <button onClick={save} className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-[13px] font-bold press hover:bg-primary/90">
-          <Save size={14} className="inline mr-1.5" /> Save Launch Settings
+        <button onClick={save} disabled={saving} className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-[13px] font-bold press hover:bg-primary/90 disabled:opacity-50">
+          <Save size={14} className="inline mr-1.5" /> {saving ? "Saving..." : "Save Launch Settings"}
         </button>
+        
+        {config.enabled && config.launch_time && (
+          <div className="bg-secondary/50 rounded-lg p-3 text-center">
+            <p className="text-[10px] text-tertiary-custom">Launch countdown is <span className="text-primary-custom font-bold">ACTIVE</span></p>
+            <p className="text-[11px] text-secondary-custom mt-1">Site will be blocked until: {new Date(config.launch_time).toLocaleString("en-US", { timeZone: "Asia/Kathmandu" })} NPT</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -380,27 +450,64 @@ function LaunchView() {
 
 // ── USERS VIEW ──
 function UsersView() {
-  const [profiles, setProfiles] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  useEffect(() => { loadProfiles(); }, []);
+  useEffect(() => { loadUsers(); }, []);
 
-  const loadProfiles = async () => {
-    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
-    setProfiles(data || []);
+  const loadUsers = async () => {
+    // Get both profiles and subscriptions, merge them
+    const [{ data: profiles }, { data: subs }] = await Promise.all([
+      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+      supabase.from("subscriptions").select("*"),
+    ]);
+    
+    // Build user map from subscriptions (most complete source since every user gets one)
+    const userMap = new Map<string, any>();
+    
+    (subs || []).forEach(sub => {
+      userMap.set(sub.user_id, {
+        user_id: sub.user_id,
+        plan: sub.plan,
+        generations_used: sub.generations_used,
+        monthly_generations: sub.monthly_generations,
+        sub_created: sub.created_at,
+      });
+    });
+    
+    // Merge profile data
+    (profiles || []).forEach(p => {
+      const existing = userMap.get(p.user_id) || { user_id: p.user_id };
+      userMap.set(p.user_id, {
+        ...existing,
+        display_name: p.display_name,
+        username: p.username,
+        avatar_url: p.avatar_url,
+        profile_created: p.created_at,
+      });
+    });
+    
+    const allUsers = Array.from(userMap.values()).sort((a, b) => {
+      const dateA = a.profile_created || a.sub_created || "";
+      const dateB = b.profile_created || b.sub_created || "";
+      return dateB.localeCompare(dateA);
+    });
+    
+    setUsers(allUsers);
     setLoading(false);
   };
 
-  const filtered = profiles.filter(p => {
+  const filtered = users.filter(u => {
     const q = search.toLowerCase();
-    return !q || (p.username || "").toLowerCase().includes(q) || (p.display_name || "").toLowerCase().includes(q);
+    if (!q) return true;
+    return (u.display_name || "").toLowerCase().includes(q) || (u.username || "").toLowerCase().includes(q) || u.user_id.includes(q);
   });
 
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <div><h1 className="text-[20px] font-semibold text-primary-custom">Users</h1><p className="text-[12px] text-tertiary-custom mt-0.5">{profiles.length} registered</p></div>
+        <div><h1 className="text-[20px] font-semibold text-primary-custom">Users</h1><p className="text-[12px] text-tertiary-custom mt-0.5">{users.length} registered</p></div>
       </div>
       <div className="relative mb-4">
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary-custom" />
@@ -411,12 +518,13 @@ function UsersView() {
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="bg-background-secondary">{["User", "Username", "Joined"].map(h => <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>)}</tr></thead>
-              <tbody>{filtered.map(p => (
-                <tr key={p.id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
-                  <td className="px-4"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0">{p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full rounded-lg object-cover" /> : <Users size={12} className="text-tertiary-custom" />}</div><span className="text-[13px] font-medium text-primary-custom">{p.display_name || "—"}</span></div></td>
-                  <td className="px-4 text-[12px] text-secondary-custom font-mono">@{p.username || "—"}</td>
-                  <td className="px-4 text-[11px] text-tertiary-custom">{new Date(p.created_at).toLocaleDateString()}</td>
+              <thead><tr className="bg-background-secondary">{["User", "Plan", "Usage", "Joined"].map(h => <th key={h} className="label-text text-tertiary-custom text-left px-4 py-2.5 font-medium">{h}</th>)}</tr></thead>
+              <tbody>{filtered.map(u => (
+                <tr key={u.user_id} className="border-t border-border hover:bg-background-secondary/50 transition-colors h-12">
+                  <td className="px-4"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0">{u.avatar_url ? <img src={u.avatar_url} alt="" className="w-full h-full rounded-lg object-cover" /> : <Users size={12} className="text-tertiary-custom" />}</div><div><span className="text-[13px] font-medium text-primary-custom block">{u.display_name || u.user_id.slice(0,8) + "..."}</span>{u.username && <span className="text-[10px] text-tertiary-custom">@{u.username}</span>}</div></div></td>
+                  <td className="px-4"><span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${u.plan === "pro" ? "bg-yellow-500/10 text-yellow-500" : "bg-secondary text-tertiary-custom"}`}>{u.plan || "free"}</span></td>
+                  <td className="px-4 text-[12px] text-secondary-custom">{u.generations_used || 0}/{u.monthly_generations || 3}</td>
+                  <td className="px-4 text-[11px] text-tertiary-custom">{new Date(u.profile_created || u.sub_created).toLocaleDateString()}</td>
                 </tr>
               ))}</tbody>
             </table>
