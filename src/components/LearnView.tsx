@@ -40,7 +40,6 @@ interface Simulation {
 const topicSuggestions = ["Human Heart", "DNA Structure", "Solar System", "Atom Model", "Human Brain", "Lungs"];
 const fallbackStepColors = ["#CC4444", "#4488CC", "#44AA44", "#D17A00", "#7D4CC2", "#D14A8B"];
 
-// Curiosity-driven waiting content
 const CURIOSITY_FACTS = [
   { emoji: "🫀", title: "What happens when your heart breaks?", desc: "Your brain releases stress hormones that can temporarily weaken your heart muscle. It's called Takotsubo cardiomyopathy." },
   { emoji: "🧬", title: "Your DNA is 99.9% identical to every human", desc: "That 0.1% difference is what makes you unique — eye color, height, even personality traits." },
@@ -111,10 +110,16 @@ const normalizeSimulationData = (rawSimulation: unknown, availableParts: string[
 const POLL_INTERVAL = 3000;
 const AUTOPLAY_DELAY = 6000;
 
+// D1 vs D2 comparison data
+const D1_VS_D2 = {
+  d1: { label: "D1 Standard", speed: "3-5 min", quality: "Basic", gens: "3/day", features: ["Simple mesh", "Basic colors", "5 steps", "Standard detail"] },
+  d2: { label: "D2 Pro", speed: "1-2 min", quality: "HD Realistic", gens: "15/month", features: ["HD textures", "Photorealistic", "8 steps", "Animations", "Part isolation"] },
+};
+
 export function LearnView() {
   const { user } = useAuth();
   const location = useLocation();
-  const { isPro, remaining, incrementUsage } = useSubscription();
+  const { isPro, remaining, incrementUsage, reload: reloadSub } = useSubscription();
   const [currentStep, setCurrentStep] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [simulation, setSimulation] = useState<Simulation | null>(null);
@@ -129,6 +134,7 @@ export function LearnView() {
   const [tappedPartInfo, setTappedPartInfo] = useState<{ name: string; func?: string } | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [curiosityIndex, setCuriosityIndex] = useState(0);
+  const [showComparison, setShowComparison] = useState(false);
   const { language, setLanguage } = useApp();
   const { speak, stop: stopTTS, isSpeaking } = useTTS();
   const autoPlayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -139,12 +145,10 @@ export function LearnView() {
   const step = simulation?.steps[currentStep];
   const resolvedHighlightPart = step ? resolvePartName(step.part, modelParts) || undefined : undefined;
 
-  // D2 locked for non-pro
   useEffect(() => {
     if (tier === "D2" && !isPro) setTier("D1");
   }, [isPro, tier]);
 
-  // Resume from Library
   useEffect(() => {
     const state = location.state as { resumeTopic?: string; resumeStep?: number } | null;
     if (state?.resumeTopic && !resumeHandled.current) {
@@ -154,17 +158,18 @@ export function LearnView() {
     }
   }, [location.state]);
 
-  // Curiosity rotation during loading
   useEffect(() => {
     if (!isLoading) return;
     setCuriosityIndex(Math.floor(Math.random() * CURIOSITY_FACTS.length));
+    // Show comparison briefly at start of generation
+    setShowComparison(true);
+    const compTimer = setTimeout(() => setShowComparison(false), 6000);
     const interval = setInterval(() => {
       setCuriosityIndex(prev => (prev + 1) % CURIOSITY_FACTS.length);
     }, 5000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); clearTimeout(compTimer); };
   }, [isLoading]);
 
-  // Autoplay with narration sync
   useEffect(() => {
     if (!isAutoPlaying || !simulation) return;
     if (!isMuted && step && lastNarratedStep.current !== currentStep) {
@@ -183,7 +188,6 @@ export function LearnView() {
 
   useEffect(() => { if (!isAutoPlaying) lastNarratedStep.current = -1; }, [isAutoPlaying]);
 
-  // Auto-start autoplay
   useEffect(() => {
     if (simulation && !isLoading && !isAutoPlaying) setIsAutoPlaying(true);
   }, [simulation, isLoading]);
@@ -218,6 +222,13 @@ export function LearnView() {
     setIsAutoPlaying(false);
     setTappedPartInfo(null);
 
+    // Check generation limit FIRST
+    if (remaining <= 0) {
+      setIsLoading(false);
+      setShowUpgrade(true);
+      return;
+    }
+
     const slug = t.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
     // 1. Check DB for existing model
@@ -245,6 +256,8 @@ export function LearnView() {
         setLoadingProgress(100);
         await supabase.from("simulation_cache").update({ serve_count: (cached.serve_count || 0) + 1 }).eq("id", cached.id);
         if (user) supabase.from("user_library").upsert({ user_id: user.id, model_id: existingModel.id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
+        // Decrement generation count even for cached models
+        await incrementUsage();
         setTimeout(() => setIsLoading(false), 300);
         return;
       }
@@ -269,18 +282,14 @@ export function LearnView() {
         console.error("Simulation failed:", err);
         setSimulation(normalizeSimulationData(null, parts, t));
       }
+      // Decrement generation count
+      await incrementUsage();
       setLoadingProgress(100);
       setTimeout(() => setIsLoading(false), 400);
       return;
     }
 
     // 2. Generate via Meshy AI
-    if (remaining <= 0) {
-      setIsLoading(false);
-      setShowUpgrade(true);
-      return;
-    }
-
     try {
       const activeTier = isPro ? tier : "D1";
       setMeshyStage("Creating 3D model...");
@@ -290,7 +299,6 @@ export function LearnView() {
         ? `A highly detailed, anatomically accurate, photorealistic educational 3D model of ${t}. Scientific precision. High-poly. Clear distinct labeled parts. Professional medical/scientific illustration quality.`
         : `A clean, educational 3D model of ${t}. Accurate proportions. Simple topology. Good for learning.`;
 
-      // D1: Preview only (faster ~1-2 min), D2: Preview + Refine (higher quality)
       const { data: previewData, error: previewErr } = await supabase.functions.invoke("meshy-3d", {
         body: { action: "create_preview", prompt: meshyPrompt, negativePrompt: "low quality, low resolution, low poly, ugly, blurry, cartoon, abstract" },
       });
@@ -303,7 +311,6 @@ export function LearnView() {
       let finalGlbUrl: string | undefined;
 
       if (activeTier === "D2") {
-        // D2: Refine for HD textures
         setMeshyStage("Applying HD textures...");
         setLoadingProgress(55);
         const { data: refineData, error: refineErr } = await supabase.functions.invoke("meshy-3d", {
@@ -314,7 +321,6 @@ export function LearnView() {
         const refineResult = await pollMeshyTask(refineData.task_id);
         finalGlbUrl = refineResult.model_urls?.glb;
       } else {
-        // D1: Use preview GLB directly (much faster!)
         finalGlbUrl = previewResult.model_urls?.glb;
       }
 
@@ -350,10 +356,10 @@ export function LearnView() {
           const normalizedJson = normalized as unknown as Json;
           await supabase.from("simulation_cache").insert([{ model_id: saveData.model_id, language: "en", ai_response: normalizedJson }]);
         }
-        await incrementUsage();
       } else {
         setSimulation(normalizeSimulationData(null, parts, t));
       }
+      await incrementUsage();
     } catch (err) {
       console.error("Generation failed:", err);
       setSimulation(normalizeSimulationData(null, [], t));
@@ -387,13 +393,19 @@ export function LearnView() {
 
   const handleShare = async () => {
     const text = `Check out this 3D model of "${topicInput}" on Discoverse AI! 🔬`;
+    const url = `${window.location.origin}/app?topic=${encodeURIComponent(topicInput)}`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Discoverse AI", text, url: window.location.origin }); }
+      try { await navigator.share({ title: "Discoverse AI", text, url }); }
       catch {}
     } else {
-      await navigator.clipboard.writeText(`${text}\n${window.location.origin}`);
+      await navigator.clipboard.writeText(`${text}\n${url}`);
       toast.success("Link copied!");
     }
+  };
+
+  const handleRemake = () => {
+    if (!topicInput.trim() || isLoading) return;
+    handleGenerate(topicInput);
   };
 
   const curiosityFact = CURIOSITY_FACTS[curiosityIndex];
@@ -470,12 +482,39 @@ export function LearnView() {
       {/* 3D Canvas */}
       <div className="flex-1 mx-3 mb-1 bg-canvas rounded-xl border border-border overflow-hidden relative min-h-0">
         {isLoading ? (
-          <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
-            {/* Custom Discoverse loading animation */}
+          <div className="h-full flex flex-col items-center justify-center gap-3 px-6 overflow-y-auto">
+            {/* D1 vs D2 Comparison - shown at start of generation */}
+            {showComparison && (
+              <div className="w-full max-w-[340px] animate-fade-in mb-2">
+                <p className="text-[9px] font-bold text-tertiary-custom uppercase tracking-widest text-center mb-2">Generation Quality</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`border rounded-lg p-3 ${tier === "D1" ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <p className="text-[10px] font-bold text-primary-custom flex items-center gap-1"><Zap size={9} /> D1 Standard</p>
+                    <div className="mt-2 space-y-1">
+                      {D1_VS_D2.d1.features.map(f => (
+                        <p key={f} className="text-[8px] text-tertiary-custom">• {f}</p>
+                      ))}
+                    </div>
+                    <p className="text-[8px] text-secondary-custom mt-2 font-mono">{D1_VS_D2.d1.gens} · {D1_VS_D2.d1.speed}</p>
+                  </div>
+                  <div className={`border rounded-lg p-3 ${tier === "D2" ? "border-accent bg-accent/5" : "border-border"}`}>
+                    <p className="text-[10px] font-bold text-accent flex items-center gap-1"><Diamond size={9} /> D2 Pro {!isPro && <Lock size={7} />}</p>
+                    <div className="mt-2 space-y-1">
+                      {D1_VS_D2.d2.features.map(f => (
+                        <p key={f} className="text-[8px] text-accent/70">✦ {f}</p>
+                      ))}
+                    </div>
+                    <p className="text-[8px] text-accent/50 mt-2 font-mono">{D1_VS_D2.d2.gens} · {D1_VS_D2.d2.speed}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Custom loading animation */}
             <div className="relative">
-              <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden">
+              <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden">
                 <div className="relative">
-                  <Box size={28} strokeWidth={1} className="text-primary-custom" style={{ animation: "spin 2s linear infinite" }} />
+                  <Box size={24} strokeWidth={1} className="text-primary-custom" style={{ animation: "spin 2s linear infinite" }} />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-2 h-2 rounded-full bg-primary-custom animate-pulse" />
                   </div>
@@ -484,19 +523,21 @@ export function LearnView() {
               <div className="absolute -inset-2 border border-primary/10 rounded-2xl" style={{ animation: "spin 4s linear infinite reverse" }} />
             </div>
 
-            <div className="w-full max-w-[220px]">
+            <div className="w-full max-w-[200px]">
               <Progress value={loadingProgress} className="h-1.5" />
-              <p className="text-[10px] text-tertiary-custom text-center mt-1 tabular-nums">{Math.round(loadingProgress)}%</p>
+              <p className="text-[9px] text-tertiary-custom text-center mt-1 tabular-nums">{Math.round(loadingProgress)}%</p>
             </div>
 
-            {meshyStage && <p className="text-[10px] text-primary-custom font-medium text-center uppercase tracking-widest">{meshyStage}</p>}
+            {meshyStage && <p className="text-[9px] text-primary-custom font-medium text-center uppercase tracking-widest">{meshyStage}</p>}
 
-            {/* Curiosity content while waiting */}
-            <div className="mt-4 bg-card/80 border border-border rounded-xl p-4 max-w-[280px] animate-fade-in" key={curiosityIndex}>
-              <p className="text-[20px] mb-2 text-center">{curiosityFact.emoji}</p>
-              <p className="text-[11px] font-bold text-primary-custom text-center mb-1">{curiosityFact.title}</p>
-              <p className="text-[10px] text-secondary-custom text-center leading-relaxed">{curiosityFact.desc}</p>
-            </div>
+            {/* Curiosity content */}
+            {!showComparison && (
+              <div className="bg-card/80 border border-border rounded-xl p-3 max-w-[260px] animate-fade-in" key={curiosityIndex}>
+                <p className="text-[18px] mb-1 text-center">{curiosityFact.emoji}</p>
+                <p className="text-[10px] font-bold text-primary-custom text-center mb-0.5">{curiosityFact.title}</p>
+                <p className="text-[9px] text-secondary-custom text-center leading-relaxed">{curiosityFact.desc}</p>
+              </div>
+            )}
           </div>
         ) : simulation ? (
           <>
@@ -539,10 +580,10 @@ export function LearnView() {
 
             {/* Canvas controls */}
             <div className="absolute top-2.5 right-2.5 flex gap-1">
-              <button onClick={handleShare} className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center press">
+              <button onClick={handleShare} className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center press" title="Share">
                 <Share2 size={11} strokeWidth={1.5} className="text-tertiary-custom" />
               </button>
-              <button className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center press">
+              <button onClick={handleRemake} disabled={isLoading} className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center press disabled:opacity-40" title="Regenerate">
                 <RotateCcw size={11} strokeWidth={1.5} className="text-tertiary-custom" />
               </button>
             </div>
