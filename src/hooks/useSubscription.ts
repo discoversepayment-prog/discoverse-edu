@@ -25,12 +25,6 @@ export function useSubscription() {
       .maybeSingle();
 
     if (data) {
-      // Check if generation counter needs reset (monthly)
-      const resetAt = new Date(data.generation_reset_at);
-      const now = new Date();
-      if (now > resetAt) {
-        // Don't reset here - let admin/backend handle it
-      }
       setSubscription(data);
     } else {
       // Create default free subscription
@@ -60,7 +54,12 @@ export function useSubscription() {
   const incrementUsage = useCallback(async () => {
     if (!user || !subscription) return;
     const newUsed = subscription.generations_used + 1;
-    await supabase.from("subscriptions").update({ generations_used: newUsed }).eq("user_id", user.id);
+    const { error } = await supabase.from("subscriptions").update({ generations_used: newUsed }).eq("user_id", user.id);
+    if (error) {
+      console.error("Failed to update usage:", error);
+      return;
+    }
+    // Update local state immediately
     setSubscription(prev => prev ? { ...prev, generations_used: newUsed } : prev);
   }, [user, subscription]);
 
