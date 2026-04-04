@@ -73,7 +73,7 @@ const FEATURES = [
   { icon: Brain, title: "Part Isolation", desc: "Each step isolates the exact part — zoom, highlight, animate. Focus on what matters." },
   { icon: Zap, title: "Point-to-Point", desc: "No fluff. No essays. Direct explanations that make you go 'ohh, that's how it works!'" },
   { icon: Shield, title: "Privacy First", desc: "Your learning stays private. No data selling. No tracking." },
-  { icon: Crown, title: "D2 Pro Models", desc: "Premium users get HD textures, deeper breakdowns, faster generation, and 15 models/month." },
+  { icon: Crown, title: "D2 Pro Models", desc: "Premium users get HD textures, deeper breakdowns, faster generation, and 15 models/day." },
 ];
 
 const SIMULATIONS = [
@@ -286,7 +286,7 @@ export default function Landing() {
                 <p className="text-[28px] font-black text-primary-custom">NPR 0</p>
                 <p className="text-[11px] text-tertiary-custom mb-4">Forever free</p>
                 <div className="space-y-2 mb-6">
-                  {["3 generations per day", "D1 Standard models", "5-step breakdowns", "Hindi & English narration"].map(f => (
+                  {["3 generations per day", "D1 Standard models", "5-step breakdowns", "Hindi, English & Nepali narration"].map(f => (
                     <div key={f} className="flex items-center gap-2"><Check size={12} className="text-primary-custom" /><span className="text-[12px] text-secondary-custom">{f}</span></div>
                   ))}
                 </div>
@@ -302,9 +302,9 @@ export default function Landing() {
                   <p className="text-[28px] font-black text-primary-custom">NPR 99</p>
                   <p className="text-[14px] text-tertiary-custom line-through">299</p>
                 </div>
-                <p className="text-[11px] text-tertiary-custom mb-4">per month</p>
+                <p className="text-[11px] text-tertiary-custom mb-4">per month · resets daily</p>
                 <div className="space-y-2 mb-6">
-                  {["15 generations per month", "D2 Enhanced AI models", "HD textures & detail", "8-step deep breakdowns", "Priority speed", "Early access features"].map(f => (
+                  {["15 generations per day", "D2 Enhanced AI models", "HD textures & photorealistic detail", "8-step deep breakdowns", "Priority speed", "Early access features"].map(f => (
                     <div key={f} className="flex items-center gap-2"><Zap size={12} className="text-yellow-500" /><span className="text-[12px] text-secondary-custom">{f}</span></div>
                   ))}
                 </div>
@@ -433,7 +433,7 @@ export default function Landing() {
             Type any topic. Get an interactive 3D model. Understand it in seconds. No reading required.
           </p>
           <button onClick={() => navigate("/auth")} className="bg-primary text-primary-foreground text-[14px] font-bold px-10 py-4 rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all">Start Exploring Free</button>
-          <p className="text-[10px] text-tertiary-custom mt-5 uppercase tracking-widest">No credit card required · 3 free generations/day</p>
+          <p className="text-[10px] text-tertiary-custom mt-5 uppercase tracking-widest">No credit card · 3 free generations every day · Resets at midnight</p>
         </Reveal>
       </section>
 
