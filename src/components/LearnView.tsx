@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import {
   Sparkles, ChevronLeft, ChevronRight, Play, Pause,
   Volume2, VolumeX, RotateCcw, Loader2, Wand2,
-  Eye, Crown, Box, Zap, Diamond, Share2, Lock,
+  Eye, Crown, Box, Zap, Diamond, Share2, Lock, ArrowRight,
 } from "lucide-react";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { ModelViewer } from "./ModelViewer";
@@ -41,13 +41,36 @@ const topicSuggestions = ["Human Heart", "DNA Structure", "Solar System", "Atom 
 const fallbackStepColors = ["#CC4444", "#4488CC", "#44AA44", "#D17A00", "#7D4CC2", "#D14A8B"];
 
 const CURIOSITY_FACTS = [
-  { emoji: "🫀", title: "What happens when your heart breaks?", desc: "Your brain releases stress hormones that can temporarily weaken your heart muscle. It's called Takotsubo cardiomyopathy." },
-  { emoji: "🧬", title: "Your DNA is 99.9% identical to every human", desc: "That 0.1% difference is what makes you unique — eye color, height, even personality traits." },
-  { emoji: "⚡", title: "Your brain generates enough electricity to power a light bulb", desc: "About 12-25 watts of power. Your neurons fire 200 times per second!" },
-  { emoji: "🦴", title: "Babies have 300 bones, adults only 206", desc: "As you grow, many bones fuse together. Your skull alone has 22 bones!" },
-  { emoji: "🫁", title: "Your lungs have the surface area of a tennis court", desc: "If you spread out all the alveoli, they'd cover about 70 square meters." },
-  { emoji: "🔬", title: "A single cell contains 6 feet of DNA", desc: "If you uncoiled all the DNA in your body, it would stretch to Pluto and back." },
+  { emoji: "🫀", title: "What happens when your heart breaks?", desc: "Your brain releases stress hormones that can temporarily weaken your heart muscle — Takotsubo cardiomyopathy." },
+  { emoji: "🧬", title: "Your DNA is 99.9% identical to every human", desc: "That 0.1% difference creates your uniqueness — eye color, height, personality." },
+  { emoji: "⚡", title: "Your brain powers a light bulb", desc: "12-25 watts of electricity. Your neurons fire 200 times per second!" },
+  { emoji: "🦴", title: "Babies have 300 bones, adults 206", desc: "As you grow, many bones fuse together. Your skull alone has 22 bones!" },
+  { emoji: "🫁", title: "Lungs = a tennis court", desc: "If you spread out all alveoli, they'd cover about 70 square meters." },
+  { emoji: "🔬", title: "A cell contains 6 feet of DNA", desc: "Uncoiled DNA from your body would stretch to Pluto and back." },
 ];
+
+// Next topic suggestions based on current topic
+const NEXT_TOPICS: Record<string, string[]> = {
+  "human heart": ["Human Lungs", "Blood Cells", "Circulatory System", "Human Brain"],
+  "dna structure": ["Cell Division", "RNA", "Protein Synthesis", "Chromosomes"],
+  "solar system": ["Earth Structure", "Moon Phases", "Black Hole", "Milky Way Galaxy"],
+  "atom model": ["Electron Cloud", "Periodic Table", "Chemical Bonds", "Nuclear Fission"],
+  "human brain": ["Nervous System", "Human Eye", "Spinal Cord", "Neurons"],
+  "lungs": ["Respiratory System", "Human Heart", "Diaphragm", "Alveoli"],
+  "human lungs": ["Respiratory System", "Human Heart", "Diaphragm", "Alveoli"],
+  "cell division": ["DNA Structure", "Mitosis", "Meiosis", "Cell Membrane"],
+  "water molecule": ["Hydrogen Bond", "Chemical Bonds", "States of Matter", "pH Scale"],
+};
+
+function getNextTopics(topic: string): string[] {
+  const key = topic.toLowerCase().trim();
+  if (NEXT_TOPICS[key]) return NEXT_TOPICS[key];
+  // Find partial match
+  for (const [k, v] of Object.entries(NEXT_TOPICS)) {
+    if (key.includes(k) || k.includes(key)) return v;
+  }
+  return ["Human Heart", "DNA Structure", "Solar System", "Atom Model"];
+}
 
 const normalizeToken = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -110,12 +133,6 @@ const normalizeSimulationData = (rawSimulation: unknown, availableParts: string[
 const POLL_INTERVAL = 3000;
 const AUTOPLAY_DELAY = 6000;
 
-// D1 vs D2 comparison data
-const D1_VS_D2 = {
-  d1: { label: "D1 Standard", speed: "3-5 min", quality: "Basic", gens: "3/day", features: ["Simple mesh", "Basic colors", "5 steps", "Standard detail"] },
-  d2: { label: "D2 Pro", speed: "1-2 min", quality: "HD Realistic", gens: "15/month", features: ["HD textures", "Photorealistic", "8 steps", "Animations", "Part isolation"] },
-};
-
 export function LearnView() {
   const { user } = useAuth();
   const location = useLocation();
@@ -135,6 +152,7 @@ export function LearnView() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [curiosityIndex, setCuriosityIndex] = useState(0);
   const [showComparison, setShowComparison] = useState(false);
+  const [comparisonModelUrl, setComparisonModelUrl] = useState<string | null>(null);
   const { language, setLanguage } = useApp();
   const { speak, stop: stopTTS, isSpeaking } = useTTS();
   const autoPlayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,6 +167,15 @@ export function LearnView() {
     if (tier === "D2" && !isPro) setTier("D1");
   }, [isPro, tier]);
 
+  // Preload a human heart model URL for comparison display
+  useEffect(() => {
+    const loadComparisonModel = async () => {
+      const { data } = await supabase.from("models").select("file_url").eq("slug", "human_heart").eq("status", "published").maybeSingle();
+      if (data?.file_url) setComparisonModelUrl(data.file_url);
+    };
+    loadComparisonModel();
+  }, []);
+
   useEffect(() => {
     const state = location.state as { resumeTopic?: string; resumeStep?: number } | null;
     if (state?.resumeTopic && !resumeHandled.current) {
@@ -161,9 +188,8 @@ export function LearnView() {
   useEffect(() => {
     if (!isLoading) return;
     setCuriosityIndex(Math.floor(Math.random() * CURIOSITY_FACTS.length));
-    // Show comparison briefly at start of generation
     setShowComparison(true);
-    const compTimer = setTimeout(() => setShowComparison(false), 6000);
+    const compTimer = setTimeout(() => setShowComparison(false), 8000);
     const interval = setInterval(() => {
       setCuriosityIndex(prev => (prev + 1) % CURIOSITY_FACTS.length);
     }, 5000);
@@ -222,7 +248,6 @@ export function LearnView() {
     setIsAutoPlaying(false);
     setTappedPartInfo(null);
 
-    // Check generation limit FIRST
     if (remaining <= 0) {
       setIsLoading(false);
       setShowUpgrade(true);
@@ -256,7 +281,6 @@ export function LearnView() {
         setLoadingProgress(100);
         await supabase.from("simulation_cache").update({ serve_count: (cached.serve_count || 0) + 1 }).eq("id", cached.id);
         if (user) supabase.from("user_library").upsert({ user_id: user.id, model_id: existingModel.id, last_step: resumeStep || 0 }, { onConflict: "user_id,model_id" }).then(() => {});
-        // Decrement generation count even for cached models
         await incrementUsage();
         setTimeout(() => setIsLoading(false), 300);
         return;
@@ -282,7 +306,6 @@ export function LearnView() {
         console.error("Simulation failed:", err);
         setSimulation(normalizeSimulationData(null, parts, t));
       }
-      // Decrement generation count
       await incrementUsage();
       setLoadingProgress(100);
       setTimeout(() => setIsLoading(false), 400);
@@ -393,13 +416,13 @@ export function LearnView() {
 
   const handleShare = async () => {
     const text = `Check out this 3D model of "${topicInput}" on Discoverse AI! 🔬`;
-    const url = `${window.location.origin}/app?topic=${encodeURIComponent(topicInput)}`;
+    const url = `https://discoverseai.com/app?topic=${encodeURIComponent(topicInput)}`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Discoverse AI", text, url }); }
+      try { await navigator.share({ title: "Discoverse AI — Instant Visual Understanding", text, url }); }
       catch {}
     } else {
       await navigator.clipboard.writeText(`${text}\n${url}`);
-      toast.success("Link copied!");
+      toast.success("Link copied! Share it with friends 🚀");
     }
   };
 
@@ -409,6 +432,7 @@ export function LearnView() {
   };
 
   const curiosityFact = CURIOSITY_FACTS[curiosityIndex];
+  const nextTopics = topicInput ? getNextTopics(topicInput) : [];
 
   return (
     <div className="flex flex-col h-full relative">
@@ -422,7 +446,7 @@ export function LearnView() {
             value={topicInput}
             onChange={(e) => setTopicInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-            placeholder="Search any topic..."
+            placeholder="Type any topic — Human Heart, DNA, Atom..."
             className="w-full bg-card border border-border rounded-lg h-9 pl-9 pr-3 text-[12px] text-primary-custom placeholder:text-tertiary-custom focus:outline-none focus:border-primary/30 transition-colors"
           />
         </div>
@@ -454,7 +478,7 @@ export function LearnView() {
         </div>
 
         <div className="flex items-center gap-1 bg-card border border-border rounded-md px-2 py-1 shrink-0">
-          <span className="text-[9px] font-bold text-tertiary-custom tabular-nums">{remaining} left</span>
+          <span className="text-[9px] font-bold text-tertiary-custom tabular-nums">{remaining}/day</span>
         </div>
 
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
@@ -471,8 +495,8 @@ export function LearnView() {
       {remaining <= 0 && !simulation && !isLoading && (
         <div className="mx-3 mb-2 bg-card border border-border rounded-xl p-4 text-center animate-scale-in">
           <Crown size={20} className="text-yellow-500 mx-auto mb-2" />
-          <p className="text-[12px] font-bold text-primary-custom mb-1">Generation limit reached</p>
-          <p className="text-[10px] text-tertiary-custom mb-3">Upgrade to Pro for 15 generations/month</p>
+          <p className="text-[12px] font-bold text-primary-custom mb-1">Daily limit reached</p>
+          <p className="text-[10px] text-tertiary-custom mb-3">Resets at midnight UTC. Upgrade to Pro for 15/day!</p>
           <button onClick={() => setShowUpgrade(true)} className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-[11px] font-bold press hover:bg-primary/90 transition-all">
             Upgrade to Pro
           </button>
@@ -482,35 +506,69 @@ export function LearnView() {
       {/* 3D Canvas */}
       <div className="flex-1 mx-3 mb-1 bg-canvas rounded-xl border border-border overflow-hidden relative min-h-0">
         {isLoading ? (
-          <div className="h-full flex flex-col items-center justify-center gap-3 px-6 overflow-y-auto">
-            {/* D1 vs D2 Comparison - shown at start of generation */}
+          <div className="h-full flex flex-col items-center justify-center gap-3 px-4 overflow-y-auto">
+            {/* D1 vs D2 Real Comparison */}
             {showComparison && (
-              <div className="w-full max-w-[340px] animate-fade-in mb-2">
-                <p className="text-[9px] font-bold text-tertiary-custom uppercase tracking-widest text-center mb-2">Generation Quality</p>
+              <div className="w-full max-w-[360px] animate-fade-in mb-2">
+                <p className="text-[9px] font-bold text-tertiary-custom uppercase tracking-widest text-center mb-2">Why D2 Pro is different</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className={`border rounded-lg p-3 ${tier === "D1" ? "border-primary bg-primary/5" : "border-border"}`}>
-                    <p className="text-[10px] font-bold text-primary-custom flex items-center gap-1"><Zap size={9} /> D1 Standard</p>
-                    <div className="mt-2 space-y-1">
-                      {D1_VS_D2.d1.features.map(f => (
-                        <p key={f} className="text-[8px] text-tertiary-custom">• {f}</p>
-                      ))}
+                  <div className="border border-border rounded-lg p-2.5 relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-tertiary-custom flex items-center gap-1 mb-1"><Zap size={9} /> D1 Standard</p>
+                    {comparisonModelUrl ? (
+                      <div className="w-full aspect-square rounded-lg bg-secondary overflow-hidden relative">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Box size={32} className="text-tertiary-custom opacity-30" />
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-card/90 px-2 py-1">
+                          <p className="text-[7px] text-tertiary-custom text-center">Basic mesh • No textures</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full aspect-square rounded-lg bg-secondary flex items-center justify-center">
+                        <Box size={28} className="text-tertiary-custom opacity-40" />
+                      </div>
+                    )}
+                    <div className="mt-1.5 space-y-0.5">
+                      <p className="text-[7px] text-destructive/70">✗ No realistic textures</p>
+                      <p className="text-[7px] text-destructive/70">✗ 3-5 min generation</p>
+                      <p className="text-[7px] text-destructive/70">✗ 5 basic steps</p>
+                      <p className="text-[7px] text-tertiary-custom">3 generations/day</p>
                     </div>
-                    <p className="text-[8px] text-secondary-custom mt-2 font-mono">{D1_VS_D2.d1.gens} · {D1_VS_D2.d1.speed}</p>
                   </div>
-                  <div className={`border rounded-lg p-3 ${tier === "D2" ? "border-accent bg-accent/5" : "border-border"}`}>
-                    <p className="text-[10px] font-bold text-accent flex items-center gap-1"><Diamond size={9} /> D2 Pro {!isPro && <Lock size={7} />}</p>
-                    <div className="mt-2 space-y-1">
-                      {D1_VS_D2.d2.features.map(f => (
-                        <p key={f} className="text-[8px] text-accent/70">✦ {f}</p>
-                      ))}
+                  <div className="border-2 border-primary rounded-lg p-2.5 relative overflow-hidden bg-primary/[0.02]">
+                    <div className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[6px] font-bold px-1.5 py-0.5 rounded-bl-md rounded-tr-md">PRO</div>
+                    <p className="text-[10px] font-bold text-primary-custom flex items-center gap-1 mb-1"><Diamond size={9} /> D2 Pro</p>
+                    {comparisonModelUrl ? (
+                      <div className="w-full aspect-square rounded-lg overflow-hidden relative bg-gradient-to-br from-primary/5 to-accent/5">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Diamond size={32} className="text-primary-custom opacity-40" />
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-primary/10 px-2 py-1">
+                          <p className="text-[7px] text-primary-custom text-center font-medium">HD textures • Realistic</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full aspect-square rounded-lg bg-primary/5 flex items-center justify-center">
+                        <Diamond size={28} className="text-primary-custom opacity-40" />
+                      </div>
+                    )}
+                    <div className="mt-1.5 space-y-0.5">
+                      <p className="text-[7px] text-primary-custom">✦ Photorealistic HD</p>
+                      <p className="text-[7px] text-primary-custom">✦ 1-2 min generation</p>
+                      <p className="text-[7px] text-primary-custom">✦ 8 deep steps</p>
+                      <p className="text-[7px] text-primary-custom font-bold">15 generations/day</p>
                     </div>
-                    <p className="text-[8px] text-accent/50 mt-2 font-mono">{D1_VS_D2.d2.gens} · {D1_VS_D2.d2.speed}</p>
                   </div>
                 </div>
+                {!isPro && (
+                  <button onClick={() => { setShowUpgrade(true); }} className="w-full mt-2 bg-primary text-primary-foreground py-1.5 rounded-lg text-[10px] font-bold press hover:bg-primary/90 transition-all flex items-center justify-center gap-1">
+                    <Crown size={10} /> Upgrade to D2 Pro
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Custom loading animation */}
+            {/* Loading animation */}
             <div className="relative">
               <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center overflow-hidden">
                 <div className="relative">
@@ -580,10 +638,10 @@ export function LearnView() {
 
             {/* Canvas controls */}
             <div className="absolute top-2.5 right-2.5 flex gap-1">
-              <button onClick={handleShare} className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center press" title="Share">
+              <button onClick={handleShare} className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center press" title="Share with friends">
                 <Share2 size={11} strokeWidth={1.5} className="text-tertiary-custom" />
               </button>
-              <button onClick={handleRemake} disabled={isLoading} className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center press disabled:opacity-40" title="Regenerate">
+              <button onClick={handleRemake} disabled={isLoading} className="w-7 h-7 bg-card/90 backdrop-blur-sm border border-border rounded-md flex items-center justify-center press disabled:opacity-40" title="Regenerate model">
                 <RotateCcw size={11} strokeWidth={1.5} className="text-tertiary-custom" />
               </button>
             </div>
@@ -652,6 +710,21 @@ export function LearnView() {
               {isPro && <span className="text-[8px] font-bold text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded">PRO</span>}
             </div>
           </div>
+
+          {/* Next topic suggestions */}
+          {nextTopics.length > 0 && (
+            <div className="px-3 py-2 border-t border-border">
+              <p className="text-[8px] font-bold text-tertiary-custom uppercase tracking-widest mb-1.5">Explore Next</p>
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1">
+                {nextTopics.map((t) => (
+                  <button key={t} onClick={() => handleGenerate(t)} disabled={isLoading}
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 bg-secondary border border-border rounded-lg text-[10px] text-secondary-custom hover:border-primary/30 hover:text-primary-custom transition-all disabled:opacity-40 press font-medium">
+                    <ArrowRight size={8} /> {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
