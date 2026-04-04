@@ -229,10 +229,17 @@ function PaymentsView() {
       khalti_qr_url: qrForm.khalti_qr_url || null,
       manual_instructions: qrForm.manual_instructions,
     };
-    const { error } = await supabase.from("site_settings").update({ value: value as any, updated_at: new Date().toISOString() }).eq("key", "payment_qr");
+    // Use upsert pattern
+    const { data: existing } = await supabase.from("site_settings").select("id").eq("key", "payment_qr").maybeSingle();
+    let error;
+    if (existing) {
+      ({ error } = await supabase.from("site_settings").update({ value: value as any, updated_at: new Date().toISOString() }).eq("key", "payment_qr"));
+    } else {
+      ({ error } = await supabase.from("site_settings").insert({ key: "payment_qr", value: value as any }));
+    }
     if (error) {
       console.error("QR save error:", error);
-      toast.error("Failed to save QR settings");
+      toast.error("Failed to save: " + error.message);
     } else {
       toast.success("QR settings saved!");
     }
