@@ -11,6 +11,18 @@ interface Subscription {
   expires_at: string | null;
 }
 
+// Check if reset is needed (midnight UTC daily)
+function needsReset(resetAt: string): boolean {
+  const now = new Date();
+  const lastReset = new Date(resetAt);
+  // Compare dates in UTC
+  return (
+    now.getUTCFullYear() !== lastReset.getUTCFullYear() ||
+    now.getUTCMonth() !== lastReset.getUTCMonth() ||
+    now.getUTCDate() !== lastReset.getUTCDate()
+  );
+}
+
 export function useSubscription() {
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -25,9 +37,19 @@ export function useSubscription() {
       .maybeSingle();
 
     if (data) {
-      setSubscription(data);
+      // Check if daily reset is needed
+      if (needsReset(data.generation_reset_at)) {
+        const dailyLimit = data.plan === "pro" ? 15 : 3;
+        await supabase.from("subscriptions").update({
+          generations_used: 0,
+          generation_reset_at: new Date().toISOString(),
+          monthly_generations: dailyLimit,
+        }).eq("user_id", user.id);
+        setSubscription({ ...data, generations_used: 0, generation_reset_at: new Date().toISOString(), monthly_generations: dailyLimit });
+      } else {
+        setSubscription(data);
+      }
     } else {
-      // Create default free subscription
       await supabase.from("subscriptions").insert({
         user_id: user.id,
         plan: "free",
@@ -59,7 +81,6 @@ export function useSubscription() {
       console.error("Failed to update usage:", error);
       return;
     }
-    // Update local state immediately
     setSubscription(prev => prev ? { ...prev, generations_used: newUsed } : prev);
   }, [user, subscription]);
 
