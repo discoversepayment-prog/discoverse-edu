@@ -286,7 +286,7 @@ export default function Landing() {
                 <p className="text-[28px] font-black text-primary-custom">NPR 0</p>
                 <p className="text-[11px] text-tertiary-custom mb-4">Forever free</p>
                 <div className="space-y-2 mb-6">
-                  {["3 generations per day", "D1 Standard models", "5-step breakdowns", "Hindi & English narration"].map(f => (
+                  {["3 generations per day", "D1 Standard models", "5-step breakdowns", "Hindi, English & Nepali narration"].map(f => (
                     <div key={f} className="flex items-center gap-2"><Check size={12} className="text-primary-custom" /><span className="text-[12px] text-secondary-custom">{f}</span></div>
                   ))}
                 </div>
