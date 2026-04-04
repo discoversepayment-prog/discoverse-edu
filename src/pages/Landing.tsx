@@ -302,9 +302,9 @@ export default function Landing() {
                   <p className="text-[28px] font-black text-primary-custom">NPR 99</p>
                   <p className="text-[14px] text-tertiary-custom line-through">299</p>
                 </div>
-                <p className="text-[11px] text-tertiary-custom mb-4">per month</p>
+                <p className="text-[11px] text-tertiary-custom mb-4">per month · resets daily</p>
                 <div className="space-y-2 mb-6">
-                  {["15 generations per month", "D2 Enhanced AI models", "HD textures & detail", "8-step deep breakdowns", "Priority speed", "Early access features"].map(f => (
+                  {["15 generations per day", "D2 Enhanced AI models", "HD textures & photorealistic detail", "8-step deep breakdowns", "Priority speed", "Early access features"].map(f => (
                     <div key={f} className="flex items-center gap-2"><Zap size={12} className="text-yellow-500" /><span className="text-[12px] text-secondary-custom">{f}</span></div>
                   ))}
                 </div>
