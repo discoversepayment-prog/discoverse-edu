@@ -433,7 +433,7 @@ export default function Landing() {
             Type any topic. Get an interactive 3D model. Understand it in seconds. No reading required.
           </p>
           <button onClick={() => navigate("/auth")} className="bg-primary text-primary-foreground text-[14px] font-bold px-10 py-4 rounded-xl hover:bg-primary/90 active:scale-[0.97] transition-all">Start Exploring Free</button>
-          <p className="text-[10px] text-tertiary-custom mt-5 uppercase tracking-widest">No credit card required · 3 free generations/day</p>
+          <p className="text-[10px] text-tertiary-custom mt-5 uppercase tracking-widest">No credit card · 3 free generations every day · Resets at midnight</p>
         </Reveal>
       </section>
 
