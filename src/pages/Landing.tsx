@@ -73,7 +73,7 @@ const FEATURES = [
   { icon: Brain, title: "Part Isolation", desc: "Each step isolates the exact part — zoom, highlight, animate. Focus on what matters." },
   { icon: Zap, title: "Point-to-Point", desc: "No fluff. No essays. Direct explanations that make you go 'ohh, that's how it works!'" },
   { icon: Shield, title: "Privacy First", desc: "Your learning stays private. No data selling. No tracking." },
-  { icon: Crown, title: "D2 Pro Models", desc: "Premium users get HD textures, deeper breakdowns, faster generation, and 15 models/month." },
+  { icon: Crown, title: "D2 Pro Models", desc: "Premium users get HD textures, deeper breakdowns, faster generation, and 15 models/day." },
 ];
 
 const SIMULATIONS = [
