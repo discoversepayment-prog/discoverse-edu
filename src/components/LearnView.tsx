@@ -5,6 +5,7 @@ import {
   Sparkles, ChevronLeft, ChevronRight, Play, Pause,
   Volume2, VolumeX, RotateCcw, Loader2, Wand2,
   Eye, Crown, Box, Zap, Diamond, Share2, Lock, ArrowRight,
+  Bot, Megaphone,
 } from "lucide-react";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { ModelViewer } from "./ModelViewer";
@@ -35,21 +36,21 @@ interface SimStep {
 interface Simulation {
   title: string;
   steps: SimStep[];
+  part_names?: Record<string, string>;
 }
 
 const topicSuggestions = ["Human Heart", "DNA Structure", "Solar System", "Atom Model", "Human Brain", "Lungs"];
-const fallbackStepColors = ["#CC4444", "#4488CC", "#44AA44", "#D17A00", "#7D4CC2", "#D14A8B"];
+const fallbackStepColors = ["#CC4444", "#4488CC", "#44AA44", "#D17A00", "#7D4CC2", "#D14A8B", "#2EA69E", "#C74375"];
 
 const CURIOSITY_FACTS = [
-  { emoji: "🫀", title: "What happens when your heart breaks?", desc: "Your brain releases stress hormones that can temporarily weaken your heart muscle — Takotsubo cardiomyopathy." },
-  { emoji: "🧬", title: "Your DNA is 99.9% identical to every human", desc: "That 0.1% difference creates your uniqueness — eye color, height, personality." },
-  { emoji: "⚡", title: "Your brain powers a light bulb", desc: "12-25 watts of electricity. Your neurons fire 200 times per second!" },
-  { emoji: "🦴", title: "Babies have 300 bones, adults 206", desc: "As you grow, many bones fuse together. Your skull alone has 22 bones!" },
-  { emoji: "🫁", title: "Lungs = a tennis court", desc: "If you spread out all alveoli, they'd cover about 70 square meters." },
+  { emoji: "🫀", title: "What happens when your heart breaks?", desc: "Your brain releases stress hormones that temporarily weaken your heart muscle." },
+  { emoji: "🧬", title: "Your DNA is 99.9% identical to every human", desc: "That 0.1% creates your uniqueness — eye color, height, personality." },
+  { emoji: "⚡", title: "Your brain powers a light bulb", desc: "12-25 watts of electricity. Neurons fire 200 times per second!" },
+  { emoji: "🦴", title: "Babies have 300 bones, adults 206", desc: "Many bones fuse together as you grow. Your skull has 22 bones!" },
+  { emoji: "🫁", title: "Lungs = a tennis court", desc: "Spread out all alveoli and they cover about 70 square meters." },
   { emoji: "🔬", title: "A cell contains 6 feet of DNA", desc: "Uncoiled DNA from your body would stretch to Pluto and back." },
 ];
 
-// Next topic suggestions based on current topic
 const NEXT_TOPICS: Record<string, string[]> = {
   "human heart": ["Human Lungs", "Blood Cells", "Circulatory System", "Human Brain"],
   "dna structure": ["Cell Division", "RNA", "Protein Synthesis", "Chromosomes"],
@@ -65,7 +66,6 @@ const NEXT_TOPICS: Record<string, string[]> = {
 function getNextTopics(topic: string): string[] {
   const key = topic.toLowerCase().trim();
   if (NEXT_TOPICS[key]) return NEXT_TOPICS[key];
-  // Find partial match
   for (const [k, v] of Object.entries(NEXT_TOPICS)) {
     if (key.includes(k) || k.includes(key)) return v;
   }
@@ -105,7 +105,9 @@ const extractModelPartsFromGlb = async (url: string): Promise<string[]> => {
 const normalizeSimulationData = (rawSimulation: unknown, availableParts: string[], topicLabel: string): Simulation => {
   const sim = rawSimulation as Partial<Simulation> | null;
   const rawSteps = Array.isArray(sim?.steps) ? sim.steps : [];
-  const steps: SimStep[] = rawSteps.slice(0, 8).map((rawStep, index) => {
+  const partNamesMap = (sim?.part_names && typeof sim.part_names === "object") ? sim.part_names : {};
+  
+  const steps: SimStep[] = rawSteps.map((rawStep, index) => {
     const step = rawStep as Partial<SimStep>;
     const rawPart = typeof step.part === "string" ? step.part.trim() : "";
     return {
@@ -123,15 +125,33 @@ const normalizeSimulationData = (rawSimulation: unknown, availableParts: string[
       camera: step.camera && typeof step.camera.x === "number" ? step.camera : { x: 0, y: 0, z: 4 },
     };
   });
-  if (steps.length > 0) return { title: typeof sim?.title === "string" && sim.title.trim() ? sim.title.trim() : topicLabel, steps };
+  if (steps.length > 0) return { 
+    title: typeof sim?.title === "string" && sim.title.trim() ? sim.title.trim() : topicLabel, 
+    steps,
+    part_names: partNamesMap as Record<string, string>,
+  };
   return {
     title: topicLabel,
+    part_names: {},
     steps: [{ title: topicLabel, part: "", color: fallbackStepColors[0], narration_en: `This is ${topicLabel}. Let's break it down.`, narration_hi: `यह ${topicLabel} है। आइए समझते हैं।`, label_en: topicLabel, label_hi: topicLabel, function_en: "", function_hi: "", animation: "", isolate: false, camera: { x: 0, y: 0, z: 4 } }],
   };
 };
 
 const POLL_INTERVAL = 3000;
 const AUTOPLAY_DELAY = 6000;
+
+// Human-readable name resolver for tapped parts
+function getReadablePartName(meshName: string, partNamesMap?: Record<string, string>): string {
+  // Check AI-provided mapping first
+  if (partNamesMap?.[meshName]) return partNamesMap[meshName];
+  
+  // If name is already readable (not generic), clean it up
+  if (!/^(mesh|object|node|group|scene)[\s_]*\d*$/i.test(meshName)) {
+    return meshName.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
+  }
+  
+  return meshName.replace(/_/g, " ");
+}
 
 export function LearnView() {
   const { user } = useAuth();
@@ -167,7 +187,7 @@ export function LearnView() {
     if (tier === "D2" && !isPro) setTier("D1");
   }, [isPro, tier]);
 
-  // Preload a human heart model URL for comparison display
+  // Preload heart model for D1/D2 comparison
   useEffect(() => {
     const loadComparisonModel = async () => {
       const { data } = await supabase.from("models").select("file_url").eq("slug", "human_heart").eq("status", "published").maybeSingle();
@@ -189,7 +209,7 @@ export function LearnView() {
     if (!isLoading) return;
     setCuriosityIndex(Math.floor(Math.random() * CURIOSITY_FACTS.length));
     setShowComparison(true);
-    const compTimer = setTimeout(() => setShowComparison(false), 8000);
+    const compTimer = setTimeout(() => setShowComparison(false), 10000);
     const interval = setInterval(() => {
       setCuriosityIndex(prev => (prev + 1) % CURIOSITY_FACTS.length);
     }, 5000);
@@ -268,6 +288,10 @@ export function LearnView() {
       if (!parts.length && existingModel.file_url.endsWith(".glb")) {
         parts = await extractModelPartsFromGlb(existingModel.file_url);
         setModelParts(parts);
+        // Save extracted parts back to DB for future use
+        if (parts.length > 0) {
+          supabase.from("models").update({ named_parts: parts }).eq("id", existingModel.id).then(() => {});
+        }
       } else {
         setModelParts(parts);
       }
@@ -406,11 +430,15 @@ export function LearnView() {
   };
 
   const handlePartTapped = useCallback((part: { name: string }) => {
+    const readableName = getReadablePartName(part.name, simulation?.part_names);
     const matchingStep = simulation?.steps.find(s => {
       const resolved = resolvePartName(s.part, modelParts);
       return resolved === part.name;
     });
-    setTappedPartInfo({ name: part.name, func: matchingStep ? (language === "en" ? matchingStep.function_en : matchingStep.function_hi) : undefined });
+    setTappedPartInfo({ 
+      name: readableName, 
+      func: matchingStep ? (language === "en" ? matchingStep.function_en : matchingStep.function_hi) : undefined 
+    });
     setTimeout(() => setTappedPartInfo(null), 4000);
   }, [simulation, modelParts, language]);
 
@@ -431,12 +459,21 @@ export function LearnView() {
     handleGenerate(topicInput);
   };
 
+  const handleD2Click = () => {
+    if (isPro) {
+      setTier("D2");
+    } else {
+      setShowComparison(true);
+      setShowUpgrade(true);
+    }
+  };
+
   const curiosityFact = CURIOSITY_FACTS[curiosityIndex];
   const nextTopics = topicInput ? getNextTopics(topicInput) : [];
 
   return (
     <div className="flex flex-col h-full relative">
-      <UpgradeDialog open={showUpgrade} onOpenChange={setShowUpgrade} />
+      <UpgradeDialog open={showUpgrade} onOpenChange={setShowUpgrade} comparisonModelUrl={comparisonModelUrl} />
 
       {/* Search bar */}
       <div className="px-3 pt-3 pb-2 flex gap-2 shrink-0">
@@ -461,13 +498,13 @@ export function LearnView() {
       </div>
 
       {/* Tier selector + topic chips */}
-      <div className="px-3 flex items-center gap-2 pb-2 shrink-0">
+      <div className="px-3 flex items-center gap-2 pb-2 shrink-0 flex-wrap">
         <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
           <button onClick={() => setTier("D1")} className={`px-2.5 py-1 text-[9px] font-bold flex items-center gap-1 transition-colors ${tier === "D1" ? "bg-primary text-primary-foreground" : "text-tertiary-custom hover:bg-secondary"}`}>
             <Zap size={8} /> D1
           </button>
           <button
-            onClick={() => isPro ? setTier("D2") : setShowUpgrade(true)}
+            onClick={handleD2Click}
             className={`px-2.5 py-1 text-[9px] font-bold flex items-center gap-1 transition-colors ${
               tier === "D2" ? "bg-accent text-accent-foreground" : "text-tertiary-custom hover:bg-secondary"
             }`}
@@ -478,10 +515,11 @@ export function LearnView() {
         </div>
 
         <div className="flex items-center gap-1 bg-card border border-border rounded-md px-2 py-1 shrink-0">
-          <span className="text-[9px] font-bold text-tertiary-custom tabular-nums">{remaining}/day</span>
+          <Zap size={8} className={remaining > 0 ? "text-primary" : "text-destructive"} />
+          <span className="text-[9px] font-bold text-primary-custom tabular-nums">{remaining}/day</span>
         </div>
 
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
           {topicSuggestions.map((t) => (
             <button key={t} onClick={() => handleGenerate(t)} disabled={isLoading}
               className="shrink-0 px-2.5 py-1 bg-card border border-border rounded-md text-[10px] text-tertiary-custom hover:border-primary/20 hover:text-primary-custom transition-all disabled:opacity-40 press font-medium">
@@ -507,61 +545,39 @@ export function LearnView() {
       <div className="flex-1 mx-3 mb-1 bg-canvas rounded-xl border border-border overflow-hidden relative min-h-0">
         {isLoading ? (
           <div className="h-full flex flex-col items-center justify-center gap-3 px-4 overflow-y-auto">
-            {/* D1 vs D2 Real Comparison */}
-            {showComparison && (
-              <div className="w-full max-w-[360px] animate-fade-in mb-2">
-                <p className="text-[9px] font-bold text-tertiary-custom uppercase tracking-widest text-center mb-2">Why D2 Pro is different</p>
+            {/* D1 vs D2 Real 3D Comparison */}
+            {showComparison && comparisonModelUrl && (
+              <div className="w-full max-w-[400px] animate-fade-in mb-2">
+                <p className="text-[9px] font-bold text-tertiary-custom uppercase tracking-widest text-center mb-2">D1 vs D2 — Real Difference</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="border border-border rounded-lg p-2.5 relative overflow-hidden">
-                    <p className="text-[10px] font-bold text-tertiary-custom flex items-center gap-1 mb-1"><Zap size={9} /> D1 Standard</p>
-                    {comparisonModelUrl ? (
-                      <div className="w-full aspect-square rounded-lg bg-secondary overflow-hidden relative">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Box size={32} className="text-tertiary-custom opacity-30" />
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-card/90 px-2 py-1">
-                          <p className="text-[7px] text-tertiary-custom text-center">Basic mesh • No textures</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="w-full aspect-square rounded-lg bg-secondary flex items-center justify-center">
-                        <Box size={28} className="text-tertiary-custom opacity-40" />
-                      </div>
-                    )}
-                    <div className="mt-1.5 space-y-0.5">
-                      <p className="text-[7px] text-destructive/70">✗ No realistic textures</p>
-                      <p className="text-[7px] text-destructive/70">✗ 3-5 min generation</p>
-                      <p className="text-[7px] text-destructive/70">✗ 5 basic steps</p>
-                      <p className="text-[7px] text-tertiary-custom">3 generations/day</p>
+                  {/* D1 side - actual 3D model wireframe style */}
+                  <div className="border border-border rounded-lg p-1.5 relative overflow-hidden">
+                    <p className="text-[9px] font-bold text-tertiary-custom flex items-center gap-1 mb-1 px-1"><Zap size={8} /> D1 Standard</p>
+                    <div className="w-full aspect-square rounded-lg bg-secondary overflow-hidden">
+                      <ModelViewer modelUrl={comparisonModelUrl} />
+                    </div>
+                    <div className="mt-1 px-1 space-y-0.5">
+                      <p className="text-[7px] text-destructive/70">✗ Basic mesh only</p>
+                      <p className="text-[7px] text-destructive/70">✗ No HD textures</p>
+                      <p className="text-[7px] text-tertiary-custom">3 gen/day</p>
                     </div>
                   </div>
-                  <div className="border-2 border-primary rounded-lg p-2.5 relative overflow-hidden bg-primary/[0.02]">
-                    <div className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[6px] font-bold px-1.5 py-0.5 rounded-bl-md rounded-tr-md">PRO</div>
-                    <p className="text-[10px] font-bold text-primary-custom flex items-center gap-1 mb-1"><Diamond size={9} /> D2 Pro</p>
-                    {comparisonModelUrl ? (
-                      <div className="w-full aspect-square rounded-lg overflow-hidden relative bg-gradient-to-br from-primary/5 to-accent/5">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Diamond size={32} className="text-primary-custom opacity-40" />
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-primary/10 px-2 py-1">
-                          <p className="text-[7px] text-primary-custom text-center font-medium">HD textures • Realistic</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="w-full aspect-square rounded-lg bg-primary/5 flex items-center justify-center">
-                        <Diamond size={28} className="text-primary-custom opacity-40" />
-                      </div>
-                    )}
-                    <div className="mt-1.5 space-y-0.5">
-                      <p className="text-[7px] text-primary-custom">✦ Photorealistic HD</p>
-                      <p className="text-[7px] text-primary-custom">✦ 1-2 min generation</p>
-                      <p className="text-[7px] text-primary-custom">✦ 8 deep steps</p>
-                      <p className="text-[7px] text-primary-custom font-bold">15 generations/day</p>
+                  {/* D2 side - highlighted with premium feel */}
+                  <div className="border-2 border-primary rounded-lg p-1.5 relative overflow-hidden bg-primary/[0.02]">
+                    <div className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[6px] font-bold px-1.5 py-0.5 rounded-bl-md rounded-tr-md z-10">PRO</div>
+                    <p className="text-[9px] font-bold text-primary-custom flex items-center gap-1 mb-1 px-1"><Diamond size={8} /> D2 Pro</p>
+                    <div className="w-full aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-primary/5 to-accent/5">
+                      <ModelViewer modelUrl={comparisonModelUrl} highlightColor="#E9785D" />
+                    </div>
+                    <div className="mt-1 px-1 space-y-0.5">
+                      <p className="text-[7px] text-primary-custom">✦ HD textures & realism</p>
+                      <p className="text-[7px] text-primary-custom">✦ Faster generation</p>
+                      <p className="text-[7px] text-primary-custom font-bold">15 gen/day</p>
                     </div>
                   </div>
                 </div>
                 {!isPro && (
-                  <button onClick={() => { setShowUpgrade(true); }} className="w-full mt-2 bg-primary text-primary-foreground py-1.5 rounded-lg text-[10px] font-bold press hover:bg-primary/90 transition-all flex items-center justify-center gap-1">
+                  <button onClick={() => setShowUpgrade(true)} className="w-full mt-2 bg-primary text-primary-foreground py-1.5 rounded-lg text-[10px] font-bold press hover:bg-primary/90 transition-all flex items-center justify-center gap-1">
                     <Crown size={10} /> Upgrade to D2 Pro
                   </button>
                 )}
@@ -631,7 +647,7 @@ export function LearnView() {
             {/* Tapped part tooltip */}
             {tappedPartInfo && (
               <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur-md border border-primary/30 px-4 py-2 rounded-xl animate-scale-in shadow-lg z-10">
-                <p className="text-[11px] font-bold text-primary-custom">{tappedPartInfo.name.replace(/_/g, " ")}</p>
+                <p className="text-[11px] font-bold text-primary-custom">{tappedPartInfo.name}</p>
                 {tappedPartInfo.func && <p className="text-[9px] text-secondary-custom mt-0.5">{tappedPartInfo.func}</p>}
               </div>
             )}
@@ -647,8 +663,24 @@ export function LearnView() {
             </div>
           </>
         ) : (
-          <div className="h-full flex items-center justify-center">
+          <div className="h-full flex flex-col items-center justify-center gap-4">
             <ModelViewer modelUrl={null} />
+            {/* AI Agents Teaser */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur-md border border-primary/20 rounded-xl px-4 py-3 max-w-[300px] animate-fade-in">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Bot size={12} className="text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-primary-custom flex items-center gap-1">
+                    <Megaphone size={8} className="text-accent" /> Coming Soon
+                  </p>
+                </div>
+              </div>
+              <p className="text-[9px] text-secondary-custom leading-relaxed">
+                <span className="font-bold text-primary-custom">Discoverse AI Agents</span> — Personal AI tutors that teach you with 3D models, voice, and interactive quizzes. Stay tuned! 🧠
+              </p>
+            </div>
           </div>
         )}
       </div>

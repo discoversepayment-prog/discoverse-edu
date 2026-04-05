@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const fallbackColors = ["#CC4444", "#4488CC", "#44AA44", "#D17A00", "#7D4CC2", "#D14A8B"];
+const fallbackColors = ["#CC4444", "#4488CC", "#44AA44", "#D17A00", "#7D4CC2", "#D14A8B", "#2EA69E", "#C74375"];
 const isHexColor = (value: unknown): value is string => typeof value === "string" && /^#([0-9a-fA-F]{6})$/.test(value);
 const normalizeToken = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -21,9 +21,15 @@ const resolvePartName = (part: unknown, namedParts: string[]) => {
 };
 
 const sanitizeSimulation = (raw: unknown, modelName: string, namedParts: string[]) => {
-  const parsed = raw as { title?: unknown; steps?: unknown[] };
+  const parsed = raw as { title?: unknown; steps?: unknown[]; part_names?: unknown };
   const rawSteps = Array.isArray(parsed?.steps) ? parsed.steps : [];
-  const steps = rawSteps.slice(0, 8).map((entry, index) => {
+  
+  // Extract part_names mapping if AI provided it
+  const partNamesMap = (parsed?.part_names && typeof parsed.part_names === "object") 
+    ? parsed.part_names as Record<string, string> 
+    : {};
+
+  const steps = rawSteps.map((entry, index) => {
     const step = entry as Record<string, unknown>;
     const rawPart = typeof step.part === "string" ? step.part : "";
     const resolvedPart = namedParts.length > 0 ? resolvePartName(rawPart, namedParts) : rawPart;
@@ -51,6 +57,7 @@ const sanitizeSimulation = (raw: unknown, modelName: string, namedParts: string[
   if (steps.length === 0) {
     return {
       title: modelName,
+      part_names: partNamesMap,
       steps: [{
         title: modelName, part: "", color: fallbackColors[0],
         narration_en: `This is ${modelName}. Let's break it down.`,
@@ -62,7 +69,11 @@ const sanitizeSimulation = (raw: unknown, modelName: string, namedParts: string[
       }],
     };
   }
-  return { title: typeof parsed?.title === "string" && parsed.title.trim() ? parsed.title.trim() : modelName, steps };
+  return { 
+    title: typeof parsed?.title === "string" && parsed.title.trim() ? parsed.title.trim() : modelName, 
+    part_names: partNamesMap,
+    steps 
+  };
 };
 
 serve(async (req) => {
@@ -79,45 +90,59 @@ serve(async (req) => {
     const modelTier = tier === "D2" ? "D2" : "D1";
 
     const partsInfo = cleanNamedParts.length
-      ? `Available mesh part names: ${cleanNamedParts.join(", ")}. Use ONLY these exact names for "part".`
+      ? `Available mesh part names: ${cleanNamedParts.join(", ")}. Use ONLY these exact names for "part". Also provide a "part_names" object mapping each mesh name to a human-readable anatomical/scientific name.`
       : 'No mesh names available. Set "part" to "" for all steps.';
-
-    const stepCount = modelTier === "D2" ? 8 : 5;
 
     const systemPrompt = `You are Discoverse AI — an Instant Visual Understanding Engine.
 Your job: Make users understand ANY concept in SECONDS through focused, visual micro-steps.
 
 RULES:
+- Create AS MANY steps as the concept NEEDS. Simple concepts: 3-4 steps. Complex ones (heart, brain, cell): 6-10 steps.
 - Each step focuses on EXACTLY ONE part or function
 - Max 1 sentence per narration (8-15 words). Be direct.
 - Every step must specify which part to ISOLATE (show only that part)
-- Include animation type when motion is involved (pulse, breathe, rotate, vibrate)
+- Include animation type that SHOWS THE FUNCTION: 
+  * "pulse" for pumping/beating organs
+  * "breathe" for expanding/contracting (lungs, diaphragm)
+  * "rotate" for spinning/rotating mechanisms
+  * "vibrate" for electrical signals/nerves
+- Animation should demonstrate WHAT THE PART DOES, not just decoration
 - Think Instagram Reels: fast, visual, zero fluff
 - For Hindi: use PROPER Devanagari (हिंदी), never Romanized
 - "function_en" = what this part DOES in under 12 words
 - "isolate": true means show ONLY this part, false means highlight within context
+- CRITICAL: If mesh names are generic (mesh_0, mesh_1, Object_0 etc.), provide a "part_names" mapping to human-readable names
 
 Return ONLY valid JSON. No markdown.`;
 
-    const userPrompt = `Create ${stepCount} instant-understanding steps for "${cleanModelName}" (${cleanSubject}).
+    const userPrompt = `Create a detailed instant-understanding simulation for "${cleanModelName}" (${cleanSubject}).
 ${partsInfo}
+
+IMPORTANT: Decide how many steps this concept NEEDS — don't force a fixed number.
+- Simple object (water molecule, magnet): 3-4 steps
+- Medium complexity (atom, eye): 5-6 steps  
+- Complex system (heart, brain, cell): 7-10 steps
 
 JSON format:
 {
   "title": "${cleanModelName}",
+  "part_names": {
+    "mesh_0": "Left Ventricle",
+    "mesh_1": "Right Ventricle"
+  },
   "steps": [
     {
-      "title": "Part Name",
-      "part": "exact_mesh_name",
+      "title": "The Complete ${cleanModelName}",
+      "part": "",
       "color": "#RRGGBB",
       "narration_en": "One punchy sentence. What it is + what it does.",
       "narration_hi": "एक वाक्य। हिंदी देवनागरी में।",
-      "label_en": "Part Name",
+      "label_en": "${cleanModelName}",
       "label_hi": "भाग नाम",
       "function_en": "Does X for Y (max 12 words)",
       "function_hi": "Y के लिए X करता है",
       "animation": "pulse|breathe|rotate|vibrate|none",
-      "isolate": true,
+      "isolate": false,
       "camera": { "x": 0, "y": 0, "z": 4 }
     }
   ]
@@ -125,15 +150,18 @@ JSON format:
 
 Rules:
 - Step 1: Full overview (part="", isolate=false) — "This is X. It does Y."
-- Steps 2-${stepCount - 1}: Each focuses on ONE specific part. Isolate it. Show its function.
-- Step ${stepCount}: Quick summary (part="", isolate=false)
-- Animation: "pulse" for pumping/beating, "breathe" for expanding/contracting, "rotate" for spinning parts, "vibrate" for electrical/nerve, "" for static
-- Colors: distinct hex per step
-- narration_en: MAX 15 words. Direct. "This is the left ventricle. It pumps oxygenated blood to your body."
+- Middle steps: Each ONE specific part. Isolate it. Show its function via animation.
+  * For heart: show blood FLOW direction, pumping action
+  * For lungs: show expansion/contraction
+  * For brain: show electrical signals
+- Last step: Summary (part="", isolate=false)
+- Animation MUST match function: heart ventricle = "pulse", lung lobe = "breathe"
+- Colors: distinct hex per step, matching anatomical conventions where possible
+- narration_en: MAX 15 words. Direct. Educational. 
 - function_en: MAX 12 words. "Pumps oxygen-rich blood to the entire body"
-- Make user understand the concept in under 30 seconds total`;
+- part_names: Map ANY generic mesh name (mesh_0, Object_0, etc.) to a proper scientific/anatomical name`;
 
-    const model = modelTier === "D2" ? "google/gemini-2.5-pro" : "google/gemini-3-flash-preview";
+    const model = modelTier === "D2" ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
