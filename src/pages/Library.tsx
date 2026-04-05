@@ -3,23 +3,15 @@ import { Search, Play, Trash2, BookOpen, Crown, Zap } from "lucide-react";
 import { MainLayout } from "@/components/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useApp } from "@/contexts/AppContext";
+import { useSubscription } from "@/hooks/useSubscription";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 const SUBJECT_MAP: Record<string, string> = {
-  biology: "Biology",
-  physics: "Physics",
-  chemistry: "Chemistry",
-  astronomy: "Astronomy",
-  engineering: "Engineering",
-  mathematics: "Mathematics",
-  science: "Science",
-  anatomy: "Biology",
-  botany: "Biology",
-  mechanics: "Physics",
-  electronics: "Engineering",
-  vehicles: "Engineering",
+  biology: "Biology", physics: "Physics", chemistry: "Chemistry",
+  astronomy: "Astronomy", engineering: "Engineering", mathematics: "Mathematics",
+  science: "Science", anatomy: "Biology", botany: "Biology",
+  mechanics: "Physics", electronics: "Engineering", vehicles: "Engineering",
   automotive: "Engineering",
 };
 
@@ -28,7 +20,6 @@ function detectCategory(name: string, subject: string): string {
   for (const [keyword, category] of Object.entries(SUBJECT_MAP)) {
     if (lower.includes(keyword)) return category;
   }
-  // AI-style heuristic detection
   if (/heart|brain|cell|dna|organ|body|blood|lung|eye|muscle|skeleton|bone/i.test(lower)) return "Biology";
   if (/car|engine|motor|gear|wheel|vehicle|jeep|truck|machine|robot|circuit/i.test(lower)) return "Engineering";
   if (/atom|force|energy|wave|light|magnet|gravity|electric|quantum/i.test(lower)) return "Physics";
@@ -37,8 +28,6 @@ function detectCategory(name: string, subject: string): string {
   if (/number|equation|geometry|algebra|calculus|math/i.test(lower)) return "Mathematics";
   return "Science";
 }
-
-const MAX_FREE_GENERATIONS = 3;
 
 interface LibraryItem {
   id: string;
@@ -60,15 +49,12 @@ export default function Library() {
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { remaining, isPro } = useSubscription();
   const navigate = useNavigate();
-
-  // Count today's generations
-  const [todayCount, setTodayCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     loadLibrary();
-    loadTodayCount();
   }, [user]);
 
   const loadLibrary = async () => {
@@ -81,22 +67,6 @@ export default function Library() {
     setLoading(false);
   };
 
-  const loadTodayCount = async () => {
-    // Reset at 6 AM instead of midnight
-    const now = new Date();
-    const resetTime = new Date();
-    resetTime.setHours(6, 0, 0, 0);
-    if (now.getHours() < 6) {
-      resetTime.setDate(resetTime.getDate() - 1);
-    }
-    const { count } = await supabase
-      .from("user_library")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user!.id)
-      .gte("created_at", resetTime.toISOString());
-    setTodayCount(count || 0);
-  };
-
   const removeItem = async (id: string) => {
     await supabase.from("user_library").delete().eq("id", id);
     setItems(items.filter((i) => i.id !== id));
@@ -105,11 +75,9 @@ export default function Library() {
 
   const resumeItem = (item: LibraryItem) => {
     if (!item.models) return;
-    // Navigate to learn mode and trigger the topic
     navigate("/app", { state: { resumeTopic: item.models.name, resumeStep: item.last_step || 0 } });
   };
 
-  // Build dynamic subject tabs from actual items
   const categorizedItems = items.map(item => ({
     ...item,
     category: item.models ? detectCategory(item.models.name, item.models.subject) : "Science"
@@ -125,7 +93,7 @@ export default function Library() {
     return matchesSubject && matchesSearch;
   });
 
-  const remaining = Math.max(0, MAX_FREE_GENERATIONS - todayCount);
+  const dailyLimit = isPro ? 15 : 3;
 
   return (
     <MainLayout title="Library">
@@ -147,7 +115,7 @@ export default function Library() {
           </div>
         </div>
 
-        {/* Generation limit banner */}
+        {/* Generation limit banner — synced with Learn screen */}
         <div className="mb-4 bg-card border border-border rounded-xl p-3 flex items-center justify-between animate-slide-up" style={{ animationDelay: "80ms" }}>
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
@@ -157,7 +125,7 @@ export default function Library() {
               <p className="text-[11px] font-semibold text-primary-custom">
                 {remaining > 0 ? `${remaining} generation${remaining !== 1 ? "s" : ""} remaining today` : "Daily limit reached"}
               </p>
-              <p className="text-[9px] text-tertiary-custom">{MAX_FREE_GENERATIONS} free per day · Resets at 6:00 AM</p>
+              <p className="text-[9px] text-tertiary-custom">{dailyLimit} per day · Resets at midnight UTC</p>
             </div>
           </div>
           {remaining === 0 && (
@@ -167,7 +135,7 @@ export default function Library() {
           )}
         </div>
 
-        {/* Subject tabs - AI detected categories */}
+        {/* Subject tabs */}
         <div className="flex gap-1 mb-5 overflow-x-auto scrollbar-none pb-1 animate-slide-up" style={{ animationDelay: "120ms" }}>
           {uniqueCategories.map((s) => (
             <button
@@ -218,7 +186,6 @@ export default function Library() {
                 style={{ animationDelay: `${i * 60}ms` }}
               >
                 <div className="h-[130px] bg-secondary/50 flex items-center justify-center relative overflow-hidden">
-                  {/* Geometric placeholder */}
                   <div className="relative w-16 h-16">
                     <div className="absolute inset-0 rounded-lg bg-border/50 rotate-45 group-hover:rotate-[55deg] transition-transform duration-500" />
                     <div className="absolute inset-2 rounded-md bg-secondary rotate-12 group-hover:rotate-[22deg] transition-transform duration-500" />
