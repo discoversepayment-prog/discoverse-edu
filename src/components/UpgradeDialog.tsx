@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Crown, Zap, Upload, Check, Loader2, Diamond, Box } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,6 @@ export function UpgradeDialog({ open, onOpenChange, comparisonModelUrl }: Upgrad
   const [paymentMethod, setPaymentMethod] = useState<"esewa" | "khalti">("esewa");
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [showComparison, setShowComparison] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -42,7 +41,6 @@ export function UpgradeDialog({ open, onOpenChange, comparisonModelUrl }: Upgrad
     loadSettings();
     setStep("info");
     setSubmitted(false);
-    setShowComparison(true);
   }, [open]);
 
   const handleScreenshotUpload = async (file: File) => {
@@ -109,30 +107,35 @@ export function UpgradeDialog({ open, onOpenChange, comparisonModelUrl }: Upgrad
           </div>
         ) : step === "info" ? (
           <div className="space-y-4">
-            {/* 3D Model Comparison */}
-            {showComparison && comparisonModelUrl && (
+            {/* 3D Model Comparison - D1 wireframe vs D2 textured */}
+            {comparisonModelUrl && (
               <div className="rounded-xl border border-border overflow-hidden">
-                <p className="text-[8px] font-bold text-tertiary-custom uppercase tracking-widest text-center py-1.5 bg-secondary/50">Real 3D Comparison</p>
+                <p className="text-[8px] font-bold text-tertiary-custom uppercase tracking-widest text-center py-1.5 bg-secondary/50">Real 3D Quality Comparison</p>
                 <div className="grid grid-cols-2 gap-0 border-t border-border">
+                  {/* D1: Wireframe / untextured look */}
                   <div className="p-1.5 border-r border-border">
                     <p className="text-[8px] font-bold text-tertiary-custom flex items-center gap-1 mb-1"><Box size={7} /> D1 Standard</p>
                     <div className="w-full aspect-square rounded-lg bg-secondary overflow-hidden">
-                      <ModelViewer modelUrl={comparisonModelUrl} />
+                      <D1WireframeViewer modelUrl={comparisonModelUrl} />
+                    </div>
+                    <div className="mt-1 space-y-0.5">
+                      <p className="text-[7px] text-destructive/70">✗ No textures</p>
+                      <p className="text-[7px] text-destructive/70">✗ No color detail</p>
+                      <p className="text-[7px] text-tertiary-custom">Basic mesh only</p>
                     </div>
                   </div>
-                  <div className="p-1.5 bg-primary/[0.02]">
+                  {/* D2: Full textured realistic */}
+                  <div className="p-1.5 bg-primary/[0.02] relative">
+                    <div className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[6px] font-bold px-1.5 py-0.5 rounded-bl-md z-10">PRO</div>
                     <p className="text-[8px] font-bold text-primary-custom flex items-center gap-1 mb-1"><Diamond size={7} /> D2 Pro ✦</p>
                     <div className="w-full aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-primary/5 to-accent/5">
-                      <ModelViewer modelUrl={comparisonModelUrl} highlightColor="#E9785D" />
+                      <ModelViewer modelUrl={comparisonModelUrl} />
                     </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-0 text-center border-t border-border">
-                  <div className="py-1.5 border-r border-border">
-                    <p className="text-[7px] text-tertiary-custom">Basic mesh • No textures</p>
-                  </div>
-                  <div className="py-1.5 bg-primary/[0.02]">
-                    <p className="text-[7px] text-primary-custom font-medium">HD textures • Realistic</p>
+                    <div className="mt-1 space-y-0.5">
+                      <p className="text-[7px] text-primary-custom">✦ HD textures & realism</p>
+                      <p className="text-[7px] text-primary-custom">✦ Photorealistic colors</p>
+                      <p className="text-[7px] text-primary-custom font-bold">✦ Enhanced detail</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -216,5 +219,72 @@ export function UpgradeDialog({ open, onOpenChange, comparisonModelUrl }: Upgrad
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** D1 Wireframe Viewer — renders the model as a grey wireframe to show "no textures" */
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, OrbitControls } from "@react-three/drei";
+import * as THREE from "three";
+
+function WireframeModel({ url }: { url: string }) {
+  const { scene } = useGLTF(url);
+  const groupRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+
+  const clonedScene = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      // Replace all materials with grey wireframe
+      mesh.material = new THREE.MeshBasicMaterial({
+        color: 0x888888,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.7,
+      });
+    });
+    return clone;
+  }, [scene]);
+
+  useEffect(() => {
+    const box = new THREE.Box3().setFromObject(clonedScene);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = maxDim > 0 ? 2.5 / maxDim : 1;
+    clonedScene.scale.setScalar(scale);
+    const scaledCenter = center.multiplyScalar(scale);
+    clonedScene.position.set(-scaledCenter.x, -scaledCenter.y, -scaledCenter.z);
+    if (camera instanceof THREE.PerspectiveCamera) {
+      camera.position.set(0, 0.5, 4);
+      camera.lookAt(0, 0, 0);
+    }
+  }, [clonedScene, camera]);
+
+  useFrame((_, delta) => {
+    if (groupRef.current) groupRef.current.rotation.y += delta * 0.2;
+  });
+
+  return (
+    <group ref={groupRef}>
+      <primitive object={clonedScene} />
+    </group>
+  );
+}
+
+function D1WireframeViewer({ modelUrl }: { modelUrl: string }) {
+  return (
+    <div className="w-full h-full">
+      <Canvas camera={{ position: [0, 0.5, 4], fov: 45 }} gl={{ antialias: true, alpha: true }} style={{ background: "transparent" }}>
+        <ambientLight intensity={0.4} />
+        <directionalLight position={[5, 5, 5]} intensity={0.5} />
+        <Suspense fallback={null}>
+          <WireframeModel url={modelUrl} />
+        </Suspense>
+        <OrbitControls enableDamping dampingFactor={0.05} minDistance={2} maxDistance={8} />
+      </Canvas>
+    </div>
   );
 }

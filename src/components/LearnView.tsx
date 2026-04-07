@@ -5,10 +5,10 @@ import {
   Sparkles, ChevronLeft, ChevronRight, Play, Pause,
   Volume2, VolumeX, RotateCcw, Loader2, Wand2,
   Eye, Crown, Box, Zap, Diamond, Share2, Lock, ArrowRight,
-  Bot, Megaphone,
 } from "lucide-react";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { ModelViewer } from "./ModelViewer";
+import { D1WireframeCanvas } from "./D1WireframeCanvas";
 import { UpgradeDialog } from "./UpgradeDialog";
 import { useApp } from "@/contexts/AppContext";
 import { useTTS } from "@/hooks/useTTS";
@@ -444,7 +444,7 @@ export function LearnView() {
 
   const handleShare = async () => {
     const text = `Check out this 3D model of "${topicInput}" on Discoverse AI! 🔬`;
-    const url = `https://discoverseai.com/app?topic=${encodeURIComponent(topicInput)}`;
+    const url = `https://discoverseai.com/s?topic=${encodeURIComponent(topicInput)}`;
     if (navigator.share) {
       try { await navigator.share({ title: "Discoverse AI — Instant Visual Understanding", text, url }); }
       catch {}
@@ -550,11 +550,11 @@ export function LearnView() {
               <div className="w-full max-w-[400px] animate-fade-in mb-2">
                 <p className="text-[9px] font-bold text-tertiary-custom uppercase tracking-widest text-center mb-2">D1 vs D2 — Real Difference</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {/* D1 side - actual 3D model wireframe style */}
+                  {/* D1 side - wireframe style to show no textures */}
                   <div className="border border-border rounded-lg p-1.5 relative overflow-hidden">
                     <p className="text-[9px] font-bold text-tertiary-custom flex items-center gap-1 mb-1 px-1"><Zap size={8} /> D1 Standard</p>
                     <div className="w-full aspect-square rounded-lg bg-secondary overflow-hidden">
-                      <ModelViewer modelUrl={comparisonModelUrl} />
+                      <D1WireframeCanvas modelUrl={comparisonModelUrl} />
                     </div>
                     <div className="mt-1 px-1 space-y-0.5">
                       <p className="text-[7px] text-destructive/70">✗ Basic mesh only</p>
@@ -665,22 +665,6 @@ export function LearnView() {
         ) : (
           <div className="h-full flex flex-col items-center justify-center gap-4">
             <ModelViewer modelUrl={null} />
-            {/* AI Agents Teaser */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-card/95 backdrop-blur-md border border-primary/20 rounded-xl px-4 py-3 max-w-[300px] animate-fade-in">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Bot size={12} className="text-primary" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold text-primary-custom flex items-center gap-1">
-                    <Megaphone size={8} className="text-accent" /> Coming Soon
-                  </p>
-                </div>
-              </div>
-              <p className="text-[9px] text-secondary-custom leading-relaxed">
-                <span className="font-bold text-primary-custom">Discoverse AI Agents</span> — Personal AI tutors that teach you with 3D models, voice, and interactive quizzes. Stay tuned! 🧠
-              </p>
-            </div>
           </div>
         )}
       </div>

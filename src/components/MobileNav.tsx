@@ -1,4 +1,4 @@
-import { BookOpen, Clock, User, Shield } from "lucide-react";
+import { BookOpen, Clock, User, Shield, Bot } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -10,6 +10,7 @@ export function MobileNav() {
   const items = [
     { icon: BookOpen, label: "Learn", action: () => navigate("/app"), show: true },
     { icon: Clock, label: "Library", action: () => navigate("/library"), show: true },
+    { icon: Bot, label: "Agents", action: () => navigate("/agents"), show: true },
     { icon: Shield, label: "Admin", action: () => navigate("/wedisni"), show: isAdmin },
     { icon: User, label: "Profile", action: () => navigate("/profile"), show: true },
   ].filter(i => i.show);
@@ -17,6 +18,7 @@ export function MobileNav() {
   const getActiveIndex = () => {
     if (location.pathname === "/profile") return items.findIndex(i => i.label === "Profile");
     if (location.pathname === "/library") return items.findIndex(i => i.label === "Library");
+    if (location.pathname === "/agents") return items.findIndex(i => i.label === "Agents");
     if (location.pathname.startsWith("/wedisni")) return items.findIndex(i => i.label === "Admin");
     return 0;
   };
