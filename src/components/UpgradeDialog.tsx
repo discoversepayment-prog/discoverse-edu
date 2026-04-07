@@ -223,9 +223,8 @@ export function UpgradeDialog({ open, onOpenChange, comparisonModelUrl }: Upgrad
 }
 
 /** D1 Wireframe Viewer — renders the model as a grey wireframe to show "no textures" */
-import { Suspense, useRef, useMemo, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, OrbitControls, Environment } from "@react-three/drei";
+import { useGLTF, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
 function WireframeModel({ url }: { url: string }) {
