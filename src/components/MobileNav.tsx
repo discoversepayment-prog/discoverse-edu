@@ -18,6 +18,7 @@ export function MobileNav() {
   const getActiveIndex = () => {
     if (location.pathname === "/profile") return items.findIndex(i => i.label === "Profile");
     if (location.pathname === "/library") return items.findIndex(i => i.label === "Library");
+    if (location.pathname === "/agents") return items.findIndex(i => i.label === "Agents");
     if (location.pathname.startsWith("/wedisni")) return items.findIndex(i => i.label === "Admin");
     return 0;
   };
