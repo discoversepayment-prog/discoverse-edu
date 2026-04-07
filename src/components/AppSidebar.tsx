@@ -1,4 +1,4 @@
-import { BookOpen, Clock, User, LogOut, Shield } from "lucide-react";
+import { BookOpen, Clock, User, LogOut, Shield, Bot } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -35,6 +35,8 @@ export function AppSidebar() {
       <nav className="px-2 space-y-0.5 flex-1">
         <SidebarItem icon={BookOpen} label="Learn" active={!isAdminRoute && location.pathname === "/app"} onClick={() => navigate("/app")} />
         <SidebarItem icon={Clock} label="Library" active={location.pathname === "/library"} onClick={() => navigate("/library")} />
+        <SidebarItem icon={Bot} label="AI Agents" active={location.pathname === "/agents"} onClick={() => navigate("/agents")} />
+        <SidebarItem icon={User} label="Profile" active={location.pathname === "/profile"} onClick={() => navigate("/profile")} />
         <SidebarItem icon={User} label="Profile" active={location.pathname === "/profile"} onClick={() => navigate("/profile")} />
 
         {isAdmin && (
