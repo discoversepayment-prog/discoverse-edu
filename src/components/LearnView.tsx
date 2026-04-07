@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { ModelViewer } from "./ModelViewer";
+import { D1WireframeCanvas } from "./D1WireframeCanvas";
 import { UpgradeDialog } from "./UpgradeDialog";
 import { useApp } from "@/contexts/AppContext";
 import { useTTS } from "@/hooks/useTTS";
