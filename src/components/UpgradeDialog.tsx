@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Crown, Zap, Upload, Check, Loader2, Diamond, Box } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
