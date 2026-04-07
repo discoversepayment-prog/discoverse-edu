@@ -5,7 +5,6 @@ import {
   Sparkles, ChevronLeft, ChevronRight, Play, Pause,
   Volume2, VolumeX, RotateCcw, Loader2, Wand2,
   Eye, Crown, Box, Zap, Diamond, Share2, Lock, ArrowRight,
-  Bot, Megaphone,
 } from "lucide-react";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { ModelViewer } from "./ModelViewer";
@@ -555,7 +554,6 @@ export function LearnView() {
                     <p className="text-[9px] font-bold text-tertiary-custom flex items-center gap-1 mb-1 px-1"><Zap size={8} /> D1 Standard</p>
                     <div className="w-full aspect-square rounded-lg bg-secondary overflow-hidden">
                       <D1WireframeCanvas modelUrl={comparisonModelUrl} />
-                    </div>
                     </div>
                     <div className="mt-1 px-1 space-y-0.5">
                       <p className="text-[7px] text-destructive/70">✗ Basic mesh only</p>
