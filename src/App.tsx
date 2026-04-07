@@ -16,6 +16,8 @@ import PublicProfile from "./pages/PublicProfile";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import NotFound from "./pages/NotFound";
+import AgentsComingSoon from "./pages/AgentsComingSoon";
+import SharedTopic from "./pages/SharedTopic";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +65,8 @@ const App = () => (
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="/wedisni" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
                 <Route path="/wedisni/*" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                <Route path="/agents" element={<ProtectedRoute><AgentsComingSoon /></ProtectedRoute>} />
+                <Route path="/s" element={<SharedTopic />} />
                 <Route path="/u/:username" element={<PublicProfile />} />
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
